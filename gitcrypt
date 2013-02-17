@@ -99,6 +99,7 @@ init_config() {
 _init() {
     eval `sed '/^ *#/d;s/:/ /;' < "$1" | while read key val; do echo "$key='$val'"; done`
     _setup
+    git reset --hard HEAD
 }
 
 _setup() {
