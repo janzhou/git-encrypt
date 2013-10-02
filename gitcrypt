@@ -9,6 +9,8 @@ _disable() {
 	git config --unset filter.encrypt.smudge
 	git config --unset filter.encrypt.clean
 	git config --unset diff.encrypt.textconv
+	git config --remove-section filter.encrypt
+	git config --remove-section diff.encrypt
 	echo "git-encrypt filter disabled"
 }
 
@@ -120,6 +122,7 @@ init_config() {
 	echo "    renormalize=true" >> $attrs
 
 	# Encryption
+	chmod 600 $GIT_DIR/config
 	git config gitcrypt.salt "$SALT"
 	git config gitcrypt.pass "$PASS"
 	git config gitcrypt.cipher "$CIPHER"
@@ -128,18 +131,36 @@ init_config() {
 	_enable
 }
 
+take_pass_from_ssh() {
+	PRIVATE_KEY=`eval echo "${PASS}" 2> /dev/null`
+	if expr "$PRIVATE_KEY" : ".*\.pub" > /dev/null ; then
+		PRIVATE_KEY=`echo "$PRIVATE_KEY" | sed s/.pub//` 
+	else
+		PRIVATE_KEY=$PRIVATE_KEY
+	fi
+
+	if [[ -s "$PRIVATE_KEY" ]]; then
+		export GITCRYPT_KEY_ENCRYPTED="$PRIVATE_KEY"
+		PASS=`gitcrypt-restore-key` || exit 1
+		unset GITCRYPT_KEY_ENCRYPTED
+	fi
+}
+
 _clean() {
 	# Encrypt using OpenSSL
+	take_pass_from_ssh
 	openssl enc -base64 -$CIPHER -S "$SALT" -k "$PASS"
 }
 
 _smudge() {
 	# If decryption fails, use `cat` instead
+	take_pass_from_ssh
 	openssl enc -d -base64 -$CIPHER -k "$PASS" 2> /dev/null || cat
 }
 
 _diff() {
 	# If decryption fails, use `cat` instead
+	take_pass_from_ssh
 	openssl enc -d -base64 -$CIPHER -k "$PASS" -in "$1" 2> /dev/null || cat "$1"
 }
 
@@ -192,6 +213,7 @@ _recrypt() {
 
 	_decrypthistory
 	git config gitcrypt.pass "$PASS"
+	chmod 600 $GIT_DIR/config
 	_crypthistory_impl
 }
 

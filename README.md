@@ -9,9 +9,23 @@ and understand the implications of using this tool before you go crazy with it.
 
 ## Features
 
-**Not Vefified on Windows**
+Now you can use ssh-private key(also with passphrase) instead password **Not Vefified on Windows**
+(actually gitcrypt uses only part of your private key)
 
-Now you can encrypt/decrypt and recrypt(change passphrase) all history
+	$ Generate a random password? [Y/n]n
+	$ Enter your passphrase: ~/.ssh/id_rsa
+
+    Also you can recrypt old repo with command:
+
+	$ gitcrypt recrypt
+	$ Do you want to change password and recrypt repo with new one? [Y/n]y
+	$ Enter your passphrase: ~/.ssh/id_rsa
+	$ ... git-encrypt filter disabled
+	$ ... Rewrite 88dc2435a93e9741df3ccaa339ab38599145a4bb (1/3)Enter pass phrase for
+	...
+	$ ...git-encrypt filter enabled
+
+Now you can encrypt/decrypt and recrypt(change passphrase) all history **Not Vefified on Windows**
 
 	$ gitcrypt crypthistory
 	$ gitcrypt decrypthistory
