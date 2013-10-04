@@ -9,6 +9,9 @@ and understand the implications of using this tool before you go crazy with it.
 
 ## Features
 
+It possible to merge(and resolve conflicts) in encrypted repos. Repos must have same passwords.
+It is realized by custom merge driver "gitcrypt-merge"
+
 Now you can use ssh-private key(also with passphrase) instead password **Not Vefified on Windows**
 (actually gitcrypt uses only part of your private key)
 
