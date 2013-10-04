@@ -21,7 +21,7 @@ decrypt "$CURRENT"
 decrypt "$BASE"
 decrypt "$OTHER"
 
-RET=$(git merge-file --marker-size -L "CURRENT" -L "BASE" -L "OTHER" "$SIZE" "$CURRENT" "$BASE" "$OTHER")
+RET=$(git merge-file --marker-size $SIZE -L "CURRENT" -L "BASE" -L "OTHER" "$CURRENT" "$BASE" "$OTHER")
 
 encrypt "$CURRENT"
 return $RET
