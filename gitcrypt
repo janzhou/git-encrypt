@@ -171,9 +171,28 @@ _diff() {
 	openssl enc -d -base64 -$CIPHER -k "$PASS" -in "$1" 2> /dev/null || cat "$1"
 }
 
+_listaffected() {
+	IFS_BACK=$IFS
+	IFS="
+	"
+	local GITCRYPT_FILES=`git ls-tree --name-only --full-tree -r HEAD` || exit 1
+	ARRAY=()
+	for x in $GITCRYPT_FILES; do
+		git check-attr filter "$x" | grep encrypt &> /dev/null
+		AFFECTED=$?
+
+		if [ $AFFECTED == "0" ]; then
+			ARRAY+=("$x")
+		fi
+	done
+	export GITCRYPT_AFFECTED_FILES=${ARRAY[@]}
+	IFS=$IFS_BACK
+}
+
 _crypthistory_impl() {
 	_disable
 	git reset --hard
+	_listaffected
 	git filter-branch --prune-empty --tree-filter "git-encrypt-filter.sh $0 clean" -f
 	_enable
 	git reset --hard
@@ -199,6 +218,7 @@ _crypthistory() {
 _decrypthistory() {
 	_disable
 	git reset --hard
+	export GITCRYPT_ALLFILES="1"
 	git filter-branch --prune-empty --tree-filter "git-encrypt-filter.sh $0 smudge" -f
 	_enable
 	git reset --hard
