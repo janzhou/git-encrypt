@@ -6,26 +6,30 @@ readonly DEFAULT_CIPHER="aes-256-ecb"
 [ -z "$GIT_DIR" ] && GIT_DIR=".git"
 
 _disable() {
+	_debug "  * disabling gitcrypt facility"
 	git config --unset filter.encrypt.smudge
 	git config --unset filter.encrypt.clean
 	git config --unset filter.encrypt.required
 	git config --unset diff.encrypt.textconv
 	git config --unset merge.encrypt.name
 	git config --unset merge.encrypt.driver
-	git config --remove-section filter.encrypt
-	git config --remove-section diff.encrypt
-	git config --remove-section merge.encrypt
-	echo "git-encrypt filter disabled"
+	git config --remove-section filter.encrypt &> /dev/null
+	git config --remove-section diff.encrypt &> /dev/null
+	git config --remove-section merge.encrypt &> /dev/null
 }
 
 _enable() {
+	_debug "  * enabling gitcrypt facility"
 	git config filter.encrypt.smudge "gitcrypt smudge"
 	git config filter.encrypt.clean "gitcrypt clean"
 	git config filter.encrypt.required
 	git config diff.encrypt.textconv "gitcrypt diff"
 	git config merge.encrypt.name "gitcrypt merge driver"
 	git config merge.encrypt.driver "gitcrypt-merge %A %O %B %L"
-	echo "git-encrypt filter enabled"
+}
+
+_debug() {
+	[ -z "$GITCRYPTDEBUG" ] || echo -e "${1}"
 }
 
 init_config() {
@@ -186,16 +190,18 @@ _listaffected() {
 		fi
 	done
 	export GITCRYPT_AFFECTED_FILES=${ARRAY[@]}
+	_debug "  Affected files: \n  [\n`printf -- '  %s\n' \"${GITCRYPT_AFFECTED_FILES[@]}\"`\n  ]"
 	IFS=$IFS_BACK
 }
 
 _crypthistory_impl() {
+	_debug " => Crypting history"
 	_disable
-	git reset --hard
+	git reset --hard &> /dev/null
 	_listaffected
-	git filter-branch --prune-empty --tree-filter "git-encrypt-filter.sh $0 clean" -f
+	git filter-branch --prune-empty --tree-filter "git-encrypt-filter.sh '$0 clean'" -f
 	_enable
-	git reset --hard
+	git reset --hard &> /dev/null
 }
 
 _crypthistory() {
@@ -216,12 +222,19 @@ _crypthistory() {
 }
 
 _decrypthistory() {
+	_debug " => Decrypting history"
 	_disable
-	git reset --hard
-	export GITCRYPT_ALLFILES="1"
-	git filter-branch --prune-empty --tree-filter "git-encrypt-filter.sh $0 smudge" -f
-	_enable
-	git reset --hard
+	git reset --hard &> /dev/null
+
+	if [ "$1" == "all" ]; then
+		export GITCRYPT_ALLFILES="1"
+		_debug "  * ALL files"
+    else
+		_listaffected
+    fi
+
+	git filter-branch --prune-empty --tree-filter "git-encrypt-filter.sh '$0 smudge'" -f
+	git reset --hard &> /dev/null
 }
 
 _recrypt() {
@@ -238,6 +251,7 @@ _recrypt() {
 			;;
 	esac
 
+	_debug "=> Recrypting history"
 	_decrypthistory
 	git config gitcrypt.pass "$PASS"
 	chmod 600 $GIT_DIR/config
