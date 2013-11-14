@@ -15,7 +15,7 @@ GITCRYPT_FILE=`eval echo ${GITCRYPT_KEY} 2> /dev/null` || exit 1
 decrypt_file() {
 	openssl rsa -in "$GITCRYPT_ENCRYPTED_FILE" | openssl dgst -sha512 | sed s/.*\ // > "$GITCRYPT_FILE" 2> /dev/null || (rm "$GITCRYPT_FILE" &> /dev/null && exit 1)
 
-	chmod 600 $GITCRYPT_FILE &> /dev/null || exit 1
+	chmod 600 "$GITCRYPT_FILE" &> /dev/null || exit 1
 
 	export GITCRYPT_TIMER="30"
 	export GITCRYPT_TIMEOUT="40"

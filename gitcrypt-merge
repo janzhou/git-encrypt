@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env sh
 
 CURRENT="$1"
 BASE="$2"

@@ -1,0 +1,23 @@
+#!/usr/bin/env sh
+
+_debug() {
+    [ -z "$GITCRYPTDEBUG" ] || echo -e "GCDBG: ${GDBGTAB} ${1}"
+}
+
+[ "$GITCRYPT_AFFECTED_FILES" == "*" ] && _debug " [$0] ALL files"
+[ "$GITCRYPT_AFFECTED_FILES" == "*" ] && GITCRYPT_AFFECTED_FILES=`git ls-tree --name-only --full-tree -r $GIT_COMMIT` || exit 1
+
+IFS="
+"
+
+export GDBGTAB="${GDBGTAB}  "
+
+for x in $GITCRYPT_AFFECTED_FILES; do
+    cmd="cat \"$x\" | $@ > \"$x.tmp\""
+    _debug "- $cmd"
+    eval $cmd || continue 
+    cat "$x.tmp" > "$x" 
+    rm -f "$x.tmp"
+done
+
+export GDBGTAB={GDBGTAB/\ \ /}
