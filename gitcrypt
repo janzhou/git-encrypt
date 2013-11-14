@@ -8,6 +8,7 @@ readonly DEFAULT_CIPHER="aes-256-ecb"
 _disable() {
 	git config --unset filter.encrypt.smudge
 	git config --unset filter.encrypt.clean
+	git config --unset filter.encrypt.required
 	git config --unset diff.encrypt.textconv
 	git config --unset merge.encrypt.name
 	git config --unset merge.encrypt.driver
@@ -20,6 +21,7 @@ _disable() {
 _enable() {
 	git config filter.encrypt.smudge "gitcrypt smudge"
 	git config filter.encrypt.clean "gitcrypt clean"
+	git config filter.encrypt.required
 	git config diff.encrypt.textconv "gitcrypt diff"
 	git config merge.encrypt.name "gitcrypt merge driver"
 	git config merge.encrypt.driver "gitcrypt-merge %A %O %B %L"
