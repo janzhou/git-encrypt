@@ -16,11 +16,11 @@ trap "rm -f \"$WATCH_FILE\" &> /dev/null; exit 0" EXIT
 
 
 while ((1)); do
-	AGE=$((`date +%s` - `stat -c %Z "$WATCH_FILE"`))
-	if (( "$AGE" > "$GITCRYPT_TIMEOUT" )); then
-		#file will removed
-		exit 0
-	fi
-	sleep "$GITCRYPT_TIMER"s
+    AGE=$((`date +%s` - `stat -c %Z "$WATCH_FILE"`))
+    if (( "$AGE" > "$GITCRYPT_TIMEOUT" )); then
+        #file will removed
+        exit 0
+    fi
+    sleep "$GITCRYPT_TIMER"s
 done
 

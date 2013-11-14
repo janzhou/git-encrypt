@@ -5,7 +5,7 @@ _debug() {
 }
 
 [ "$GITCRYPT_AFFECTED_FILES" == "*" ] && _debug " [$0] ALL files"
-[ "$GITCRYPT_AFFECTED_FILES" == "*" ] && GITCRYPT_AFFECTED_FILES=`git ls-tree --name-only --full-tree -r $GIT_COMMIT` || exit 1
+[ "$GITCRYPT_AFFECTED_FILES" == "*" ] && (GITCRYPT_AFFECTED_FILES=`git ls-tree --name-only --full-tree -r $GIT_COMMIT` || exit 1)
 
 IFS="
 "

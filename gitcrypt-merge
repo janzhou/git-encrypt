@@ -6,15 +6,15 @@ OTHER="$3"
 SIZE="$4"
 
 decrypt() {
-	FILE="$1"
-	cat "$FILE" | gitcrypt smudge > "$FILE".tmp || exit 1
-	cat "$FILE".tmp > "$FILE" && rm "$FILE".tmp
+    FILE="$1"
+    cat "$FILE" | gitcrypt smudge > "$FILE".tmp || exit 1
+    cat "$FILE".tmp > "$FILE" && rm "$FILE".tmp
 }
 
 encrypt() {
-	FILE="$1"
-	cat "$FILE" | gitcrypt clean > "$FILE".tmp || exit 1
-	cat "$FILE".tmp > "$FILE" && rm "$FILE".tmp
+    FILE="$1"
+    cat "$FILE" | gitcrypt clean > "$FILE".tmp || exit 1
+    cat "$FILE".tmp > "$FILE" && rm "$FILE".tmp
 }
 
 decrypt "$CURRENT"
