@@ -14,10 +14,12 @@ export GDBGTAB="${GDBGTAB}  "
 
 for x in $GITCRYPT_AFFECTED_FILES; do
     cmd="cat \"$x\" | $@ > \"$x.tmp\""
-    _debug "- $cmd"
-    eval $cmd || continue 
-    cat "$x.tmp" > "$x" 
-    rm -f "$x.tmp"
+    if [ -f "$x" ]; then
+        _debug "- $cmd"
+        eval $cmd || continue 
+        cat "$x.tmp" > "$x" 
+        rm -f "$x.tmp"
+    fi
 done
 
 export GDBGTAB={GDBGTAB/\ \ /}

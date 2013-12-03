@@ -142,9 +142,11 @@ init_config() {
     read patterns
     [ -z "$patterns" ] && patterns="*"
 
-    for pattern in $patterns; do
+    set -o noglob
+    for pattern in ${patterns}; do
         echo "$pattern filter=encrypt diff=encrypt merge=encrypt" >> $attrs
     done
+    set +o noglob
     echo "[merge]" >> $attrs
     echo "    renormalize=true" >> $attrs
 
@@ -200,7 +202,7 @@ _listaffected() {
     local GITCRYPT_FILES=$(git ls-tree --name-only --full-tree -r HEAD) || die "Can't collect list of files in repo"
     ARRAY=()
     for x in $GITCRYPT_FILES; do
-        git check-attr filter "$x" | grep encrypt #&> /dev/null
+        git check-attr filter "$x" | grep encrypt &> /dev/null
         if [ $? -eq 0 ]; then
             _debug " - adding file #{$x} to affected list"
             ARRAY+=("$x")
