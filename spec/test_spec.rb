@@ -5,10 +5,11 @@ TMPDIR=%x(mktemp -d).strip
 BASEREPO="#{TMPDIR}/base"
 CRYPTREPO="#{TMPDIR}/crypt"
 CRYPTREPO2="#{TMPDIR}/crypt2"
+CRYPTREPO3="#{TMPDIR}/crypt3"
 DECRYPTREPO="#{TMPDIR}/decrypt"
 
 FILE1="file1"
-DATA1="123\n321\n555\nabcdef"
+DATA1="123\n321\n555\nabcdef\we must make some diff context\nqweqwe\nasdasd\nzxczxc\nrtyfghvbn\nhjkhjk"
 
 FILE2="file2"
 DATA2="asd\nefg\nzxc\nqwerty"
@@ -94,5 +95,39 @@ describe "Preparing git repo" do
         expect(File.read(DECRYPTREPO+"/"+FILE2).strip).to eq DATA2
     end
 
+    it "merging crypted repo" do
+		NEWDATA1_PREF = "NEWDATA\n#{DATA1}"
+		NEWDATA1_SUFF = "#{DATA1}\nNEWDATA"
+
+        %x(
+            pushd #{TMPDIR}
+            git clone #{CRYPTREPO} #{CRYPTREPO3}
+            pushd #{CRYPTREPO3}
+            echo "\nn\npasswd\n\n\n\n#{FILE1}\n" | gitcrypt init
+            git reset --hard
+        )
+        expect(File.read(CRYPTREPO3+"/"+FILE1).strip).to eq DATA1
+        expect(File.read(CRYPTREPO3+"/"+FILE2).strip).to eq DATA2
+
+		
+        %x(
+            pushd #{CRYPTREPO}
+			echo -e "#{NEWDATA1_PREF}" > #{FILE1}
+			git add "#{FILE1}"
+			git commit -am "commit for merge 1"
+        )
+
+        %x(
+            pushd #{CRYPTREPO3}
+			echo -e "#{NEWDATA1_SUFF}" > #{FILE1}
+			git add "#{FILE1}"
+			git commit -am "commit for merge 2"
+			git pull
+		)
+
+
+        expect(File.read(CRYPTREPO3+"/"+FILE1).strip).to eq "#{NEWDATA}\nDATA1\n#{NEWDATA}"
+        expect(File.read(CRYPTREPO3+"/"+FILE2).strip).to eq DATA2
+    end
 end
 
