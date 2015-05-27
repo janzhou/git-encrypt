@@ -25,6 +25,7 @@ _disable() {
     git config --unset filter.encrypt.clean
     git config --unset filter.encrypt.required
     git config --unset diff.encrypt.textconv
+
     git config --unset merge.encrypt.name
     git config --unset merge.encrypt.driver
     git config --remove-section filter.encrypt &> /dev/null
@@ -38,6 +39,7 @@ _enable() {
     git config filter.encrypt.clean "gitcrypt clean"
     git config filter.encrypt.required
     git config diff.encrypt.textconv "gitcrypt diff"
+
     git config merge.encrypt.name "gitcrypt merge driver"
     git config merge.encrypt.driver "gitcrypt-merge %A %O %B %L"
 }
@@ -82,8 +84,9 @@ init_config() {
 
             case "$answer" in
                 n*|N*)
-                    echo -n "Enter your passphrase: "
+					echo -n "Enter your passphrase or path to rsa-private key(ex ~/.ssh/id_rsa): "
                     read PASS
+            		[ -z "$PASS" ] && PASS="~/.ssh/id_rsa"
                     ;;
                 *)
                     PASS=$(cat /dev/urandom | LC_ALL="C" tr -dc '!@#$%^&*()_A-Z-a-z-0-9' | head -c32)
@@ -164,7 +167,9 @@ take_pass_from_ssh() {
     #expand ~/file to absolute filepath
     PRIVATE_KEY=$(eval echo "${PASS}" 2> /dev/null)
     if expr "$PRIVATE_KEY" : ".*\.pub" > /dev/null ; then
+		#remove .pu extension if any
         PRIVATE_KEY=$(echo "$PRIVATE_KEY" | sed s/.pub//)
+		PRIVATE_KEY=`readlink -e "$PRIVATE_KEY"`
     fi
 
     #decrypt key and start watchdog for unencrypted file
@@ -269,7 +274,7 @@ _recrypt() {
             exit 0
             ;;
         *)
-            echo -n "Enter your passphrase: "
+            echo -n "Enter your new passphrase or path to key: "
             read PASS
             ;;
     esac
@@ -288,15 +293,13 @@ case "$1" in
         # Need a shared salt
         SALT=$(git config gitcrypt.salt)
         if [ -z "$SALT" ]; then
-            echo "Gitcrypt: shared salt (gitcrypt.salt) has not been configured"
-            exit 1
+            die "Gitcrypt: shared salt (gitcrypt.salt) has not been configured"
         fi
 
         # Need a secure passphrase
         PASS=$(git config gitcrypt.pass)
         if [ -z "$PASS" ]; then
-            echo "Gitcrypt: secure passphrase (gitcrypt.pass) has not been configured"
-            exit 1
+            die "Gitcrypt: secure passphrase (gitcrypt.pass) has not been configured"
         fi
 
         # And a cipher mode
@@ -318,7 +321,7 @@ case "$1" in
 
         # Not a valid option
         if [ -z "$1" ]; then
-            echo "Gitcrypt: available options: init, version"
+            echo "Gitcrypt: available options: init, enable, disable, crypthistory, decrypthistory, recrypt, version"
         else
             echo "Gitcrypt: command does not exist: $1"
         fi

@@ -1,10 +1,17 @@
 #!/usr/bin/env sh
 
 [ -z "$GIT_DIR" ] && GIT_DIR=".git"
-GIT_DIR=`readlink -e "$GIT_DIR"`
+GIT_DIR=$(eval echo "${GIT_DIR}" 2> /dev/null)
+GIT_DIR=`readlink -e "${GIT_DIR}"`
 
-[ -z "$GITCRYPT_KEY_ENCRYPTED" ] && GITCRYPT_KEY_ENCRYPTED=~/.ssh/id_rsa
-GITCRYPT_KEY_ENCRYPTED=`readlink -e "$GITCRYPT_KEY_ENCRYPTED"`
+die() {
+    echo "Error: $@"
+    exit -1
+}
+
+[ -z "$GITCRYPT_KEY_ENCRYPTED" ] && die "GITCRYPT_KEY_ENCRYPTED is not set"
+GITCRYPT_KEY_ENCRYPTED=$(eval echo "${GITCRYPT_KEY_ENCRYPTED}" 2> /dev/null)
+GITCRYPT_KEY_ENCRYPTED=`readlink -e "$GITCRYPT_KEY_ENCRYPTED"` || die "can't readlink from ${GITCRYPT_KEY_ENCRYPTED}"
 
 [ -z "$GITCRYPT_KEY" ] && GITCRYPT_KEY=$GIT_DIR/key_decrypt.tmp
 
@@ -12,11 +19,14 @@ GITCRYPT_KEY_ENCRYPTED=`readlink -e "$GITCRYPT_KEY_ENCRYPTED"`
 GITCRYPT_ENCRYPTED_FILE=`eval echo ${GITCRYPT_KEY_ENCRYPTED} 2> /dev/null` || exit 1
 GITCRYPT_FILE=`eval echo ${GITCRYPT_KEY} 2> /dev/null` || exit 1
 
-decrypt_file() {
-    KEY=$(openssl rsa -in "$GITCRYPT_ENCRYPTED_FILE") || exit 1
-    echo "$KEY" | openssl dgst -sha512 | sed s/.*\ // > "$GITCRYPT_FILE" 2> /dev/null || (rm "$GITCRYPT_FILE" &> /dev/null && exit 1)
+GITCRYPT_ENCRYPTED_FILE=`readlink -e "${GITCRYPT_ENCRYPTED_FILE}"`
+GITCRYPT_FILE=`readlink -e "${GITCRYPT_FILE}"`
 
-    chmod 600 "$GITCRYPT_FILE" &> /dev/null || exit 1
+decrypt_file() {
+    KEY=$(openssl rsa -in "$GITCRYPT_ENCRYPTED_FILE") || die "can't decrypt private key with openssl"
+    echo "$KEY" | openssl dgst -sha512 | sed s/.*\ // > "${GITCRYPT_FILE}" 2> /dev/null || (rm -f "${GITCRYPT_FILE}" &> /dev/null && exit 1)
+
+    chmod 600 "${GITCRYPT_FILE}" &> /dev/null || exit 1
 
     export GITCRYPT_TIMER="30"
     export GITCRYPT_TIMEOUT="40"
@@ -29,17 +39,17 @@ else
     # try to deted lost(unwatched) file, for example when crash occured
     DANGLING="120"
 
-    AGE=$((`date +%s` - `stat -c %Z "$GITCRYPT_FILE"`))
+    AGE=$((`date +%s` - `stat -c %Z "${GITCRYPT_FILE}"`))
     if (( "$AGE" > "$DANGLING" )); then
-        rm -f "$GITCRYPT_FILE" &> /dev/null
+        rm -f "${GITCRYPT_FILE}" &> /dev/null
         decrypt_file
     else
-        touch -c "$GITCRYPT_FILE"
+        touch -c "${GITCRYPT_FILE}"
     fi
 fi
 
 if [ -s "$GITCRYPT_FILE" ]; then
-    cat $GITCRYPT_FILE || exit 1
+    cat "${GITCRYPT_FILE}" || dir "can't read content of encrypted key: ${GITCRYPT_FILE}"
     exit 0
 else
     exit 1
