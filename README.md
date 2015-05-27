@@ -1,5 +1,6 @@
 # Transparent Git Encryption
 
+This project heavyly based(forked) on [git-encrypt][8]
 The gitcrypt tool is inspired by [this document][1] written by [Ning Shang][2],
 which was in turn inspired by [this post][3]. Without these two documents,
 by people much smarter than me, gitcrypt would not exist.
@@ -12,13 +13,13 @@ and understand the implications of using this tool before you go crazy with it.
 * It possible to merge(and resolve conflicts) in encrypted repos. Repos must have same passwords.
 It is realized by custom merge driver "gitcrypt-merge"
 
-* You can use ssh-private key(also with passphrase) instead password **Not Vefified on Windows**
-(actually gitcrypt uses only part of your private key)
+* You can use ssh-private key(also with passphrase) instead of password **Not Vefified on Windows**
+(actually gitcrypt uses only part of your private key hased by sha512)
 
 		$ Generate a random password? [Y/n]n
 		$ Enter your passphrase: ~/.ssh/id_rsa
 
-    Also you can recrypt old repo with command:
+* You can recrypt old repo history with command:
 
 		$ gitcrypt recrypt
 		$ Do you want to change password and recrypt repo with new one? [Y/n]y
@@ -36,14 +37,14 @@ It is realized by custom merge driver "gitcrypt-merge"
 
 
 ## Requirements
-Openssl must be installed and the binary must be available in your $PATH.
+Openssl and git  must be installed and the binary must be available in your $PATH.
 
 ## Installation
 
-Clone git-encrypt somewhere on your local machine:
+Clone gitcrypt somewhere on your local machine:
 
-    $ git clone https://github.com/shadowhand/git-encrypt
-    $ cd git-encrypt
+    $ git clone https://github.com/kinnalru/gitcrypt
+    $ cd gitcrypt
 
 The `gitcrypt` command must be executable:
 
@@ -52,6 +53,10 @@ The `gitcrypt` command must be executable:
 And it and it's internal files must be accessible in your `$PATH`:
 
     $ export PATH="$PATH:$(pwd)"
+
+### Gentoo
+
+Or you can use my home little overlay for Gentoo: [https://github.com/kinnalru/hoverlay][https://github.com/kinnalru/hoverlay]
 
 ### For Windows
 
@@ -121,10 +126,10 @@ passphrase to your git configuration:
 > It is possible to set these options globally using `git config --global`,
 but more secure to create a separate passphrase for every repository.
 
-The default [encryption cipher][5] is `aes-256-ebc`, which should be suitable
+The default [encryption cipher][5] is `aes-256-ecb`, which should be suitable
 for almost everyone. However, it is also possible to use a different cipher:
 
-    $ git config gitcrypt.cipher aes-256-ebc
+    $ git config gitcrypt.cipher aes-256-ecb
 
 > An "ECB" mode is used because it encrypts in a format that provides usable
 text diff, meaning that a single change will not cause the entire file to be
@@ -188,36 +193,9 @@ Once configuration is complete, reset and checkout all the files:
 
 All the files in the are now decrypted and ready to be edited.
 
-# Alternate method: git-encrypt-init.sh
-
-Contributed by [Jay Taylor](https://jaytaylor.com "jaytaylor.com")
-
-
-The git-encrypt-init.sh shell script automatically performs all prepartion,
-setup and configuration for a local repository clone, prompting the user for
-any required information (salt and password phrases.)  This method of also
-ensures that the git-encrypt scripts are automatically installed to
-`~/.gitencrypt/`. One drawback to this approach is that it only supports having
-1 password.
-
-One reason to use this alternate approach is because it makes decrypting cloned
-repositories as simple as executing one script.
-
-## Usage
-
-Once you've cloned git-encrypt using the alternate script is straightforward:
-
-    $ cd /path/to/your/repository
-    $ sh /path/to/git-encrypt/git-encrypt-init.sh
-
-Then you can add the files you would like to have encrypted to the
-.gitattributes file contained in the root of your repository.
-
-
 # Conclusion
 
-Enjoy your secure git repository! If you think gitcrypt is totally awesome,
-you could [buy me something][wishes] or [donate some money][donate].
+Enjoy your secure git repository! 
 
 [1]: http://syncom.appspot.com/papers/git_encryption.txt "GIT transparent encryption"
 [2]: http://syncom.appspot.com/
@@ -226,6 +204,4 @@ you could [buy me something][wishes] or [donate some money][donate].
 [5]: http://en.wikipedia.org/wiki/Cipher
 [6]: http://www.kernel.org/pub/software/scm/git/docs/gitattributes.html
 [7]: http://www.kernel.org/pub/software/scm/git/docs/gitignore.html#_pattern_format
-
-[wishes]: http://www.amazon.com/gp/registry/wishlist/1474H3P2204L8
-[donate]: http://www.pledgie.com/campaigns/14931
+[8]: http://github.com/shadowhand/git-encrypt
