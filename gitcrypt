@@ -48,6 +48,43 @@ _debug() {
     [ -z "$GITCRYPTDEBUG" ] || echo -e "GCDBG: ${GDBGTAB} ${1}"
 }
 
+
+
+_generate_masterkey() {
+  cat /dev/urandom | LC_ALL="C" tr -dc '!@#$%^&*()_A-Z-a-z-0-9' | head -c32
+}
+
+_master() {
+  echo "$(git rev-parse --show-toplevel)/.gitcryptmaster" 
+}
+
+_encrypt_masterkey() {
+  local master=$(_master)
+  if [ "$PASS" == "gpg" ]; then
+    echo _generate_masterkey | gpg --encrypt --armor > "$master"
+  else
+    echo _generate_masterkey | openssl enc -d -base64 -$CIPHER -k "$PASS" > "$master"
+  fi
+}
+
+_decrypt_masterkey() {
+  while [ -z "$MKEY" ]; do
+	  local master=$(_master)
+	  [[ -r "$master" ]] || die "can't read master password $master"
+	  if [ "$PASS" == "gpg" ]; then
+	    MKEY=$(cat "$master" | gpg --decrypt || die "can't decrypt masterkey")
+	  else
+		  MKEY=$(openssl enc -d -base64 -$CIPHER -k "$PASS" -in "$master" || die "can't decrypt masterkey")
+	  fi
+  done
+}
+
+_salt() {
+  local md5=$(which md5 2>/dev/null || which md5sum 2>/dev/null)
+  LC_ALL="C" echo "$1" | tr -dc 'a-e-0-9' | $md5 | cut -c-16
+}
+
+
 init_config() {
     local answer
 
@@ -57,41 +94,13 @@ init_config() {
     fi
 
     while [ 1 ]; do
-        while [ -z "$SALT" ]; do
-            echo -n "Generate a random salt? [Y/n] "
-            read answer
-
-            case "$answer" in
-                n*|N*)
-                    echo -n "Shared salt as hex characters: "
-                    read SALT
-
-                    if [ $(echo "$SALT" | grep '[^a-f0-9]' | wc -l) -ne 0 ]; then
-                        echo "Error: non-hex characters in salt"
-                        unset -v SALT
-                    fi
-                    ;;
-                *)
-                    local md5=$(which md5 2>/dev/null || which md5sum 2>/dev/null)
-                    SALT=$(head -c 10 < /dev/random | $md5 | cut -c-16)
-                    ;;
-            esac
-        done
 
         while [ -z "$PASS" ]; do
-            echo -n "Generate a random password? [Y/n]"
-            read answer
-
-            case "$answer" in
-                n*|N*)
-					echo -n "Enter your passphrase or path to rsa-private key(ex ~/.ssh/id_rsa): "
-                    read PASS
-            		[ -z "$PASS" ] && PASS="~/.ssh/id_rsa"
-                    ;;
-                *)
-                    PASS=$(cat /dev/urandom | LC_ALL="C" tr -dc '!@#$%^&*()_A-Z-a-z-0-9' | head -c32)
-                    ;;
-            esac
+          echo "Please select masterkey encryption type:"
+          echo " type 'gpg' for use gpg"
+          echo " type path to ssh-private key ex: ~/.ssh/id_rsa"
+          echo " or type <passphrase> wich will encrypt masterkey"
+          read PASS
         done
 
         while [ 1 ]; do
@@ -107,7 +116,6 @@ init_config() {
         done
 
         echo -e "\nThis configuration will be stored:\n"
-        echo "salt:   $SALT"
         echo "pass:   $PASS"
         echo "cipher: $CIPHER"
         echo -e -n "\nDoes this look right? [Y/n] "
@@ -116,7 +124,6 @@ init_config() {
         case "$answer" in
             n*|N*)
                 # Reconfigure
-                unset -v SALT
                 unset -v PASS
                 unset -v CIPHER
                 ;;
@@ -148,6 +155,8 @@ init_config() {
     set -o noglob
     for pattern in ${patterns}; do
         echo "$pattern filter=encrypt diff=encrypt merge=encrypt" >> $attrs
+        echo ".gitcryptmaster filter diff merge text" >> $attrs
+        echo ".gitattributes filter diff merge text" >> $attrs
     done
     set +o noglob
     echo "[merge]" >> $attrs
@@ -155,7 +164,15 @@ init_config() {
 
     # Encryption
     chmod 600 "$GIT_DIR"/config
-    git config gitcrypt.salt "$SALT"
+
+    if [ ! -r "$(_master)" ]; then
+      _encrypt_masterkey
+  	  git add $(_master)
+  	  git commit -m "master key initilized"
+    fi
+    _decrypt_masterkey
+
+    git config gitcrypt.salt "$(_salt $MKEY)"
     git config gitcrypt.pass "$PASS"
     git config gitcrypt.cipher "$CIPHER"
 
@@ -163,7 +180,8 @@ init_config() {
     _enable
 }
 
-take_pass_from_ssh() {
+
+take_pass_from_any() {
     #expand ~/file to absolute filepath
     PRIVATE_KEY=$(eval echo "${PASS}" 2> /dev/null)
     if expr "$PRIVATE_KEY" : ".*\.pub" > /dev/null ; then
@@ -182,21 +200,18 @@ take_pass_from_ssh() {
 }
 
 _clean() {
-    # Encrypt using OpenSSL
-    take_pass_from_ssh
-    openssl enc -base64 -$CIPHER -S "$SALT" -k "$PASS"
+  _decrypt_masterkey
+	openssl enc -base64 -$CIPHER -S "$SALT" -k "$MKEY"
 }
 
 _smudge() {
-    # If decryption fails, use `cat` instead
-    take_pass_from_ssh
-    openssl enc -d -base64 -$CIPHER -k "$PASS" 2> /dev/null || cat
+  _decrypt_masterkey
+	openssl enc -d -base64 -$CIPHER -k "$MKEY" 2> /dev/null || cat
 }
 
 _diff() {
-    # If decryption fails, use `cat` instead
-    take_pass_from_ssh
-    openssl enc -d -base64 -$CIPHER -k "$PASS" -in "$1" 2> /dev/null || cat "$1"
+  _decrypt_masterkey
+	openssl enc -d -base64 -$CIPHER -k "$MKEY" -in "$1" 2> /dev/null || cat "$1"
 }
 
 _listaffected() {
@@ -301,6 +316,8 @@ case "$1" in
         if [ -z "$PASS" ]; then
             die "Gitcrypt: secure passphrase (gitcrypt.pass) has not been configured"
         fi
+
+        MKEY=$(_decrypt_masterkey)
 
         # And a cipher mode
         CIPHER=$(git config gitcrypt.cipher)

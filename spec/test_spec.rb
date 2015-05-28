@@ -47,6 +47,9 @@ describe "Preparing git repo" do
             mkdir -p #{BASEREPO}
             pushd #{BASEREPO}
             git init
+            > .initial
+            git add .initial
+            git commit -m "initial"
             echo -e "#{DATA1}" >> #{FILE1}
             echo -e "#{DATA2}" >> #{FILE2}
             git add "#{FILE1}" "#{FILE2}"
@@ -63,7 +66,8 @@ describe "Preparing git repo" do
           expect(File.read(FILE2).strip).to eq DATA2
 
           %x(
-              echo "\nn\npasswd\n\n\n\n#{FILE1}\n" | gitcrypt init
+              echo "gpg\n\n\n\n#{FILE1}\n" | gitcrypt init
+              rm #{FILE1}
               git reset --hard
           )
 
@@ -90,7 +94,7 @@ describe "Preparing git repo" do
           expect(File.read(FILE2).strip).to eq DATA2
 
           %x(
-              echo "\nn\npasswd\n\n\n\n#{FILE1}\n" | gitcrypt init
+              echo "gpg\n\n\n\n#{FILE1}\n" | gitcrypt init
               git reset --hard
           )
 
@@ -112,7 +116,7 @@ describe "Preparing git repo" do
           expect(File.read(FILE2).strip).to eq DATA2
 
           %x(
-              echo "\nn\n#{newpass}\n\n\n\n#{FILE1}\n" | gitcrypt init
+              echo "gpg\n\n\n\n#{FILE1}\n" | gitcrypt init
               git reset --hard
           )
 
@@ -145,7 +149,7 @@ describe "Preparing git repo" do
       @repos[:cr2] = clone_repo @repos[:cr], NAMES[:cr2] do |repo|
         Dir.chdir repo
         %x(
-            echo "\nn\npasswd\n\n\n\n#{FILE1}\n" | gitcrypt init
+            echo "gpg\n\n\n\n#{FILE1}\n" | gitcrypt init
             git reset --hard
         ) 
         expect(File.read(FILE1).strip).to eq DATA1
