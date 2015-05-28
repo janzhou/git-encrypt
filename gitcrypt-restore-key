@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 
 [ -z "$GIT_DIR" ] && GIT_DIR=".git"
 GIT_DIR=$(eval echo "${GIT_DIR}" 2> /dev/null)
