@@ -112,6 +112,7 @@ cipher mode, and what files should be encrypted.
     $ gitcrypt init
 
 Useful example to mark *.skip files not-encryptable:
+
 	$ cat .git/info/attributes
 	$ * filter=encrypt diff=encrypt merge=encrypt
 	$ *.skip text diff merge filter
