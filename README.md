@@ -1,6 +1,7 @@
 # Transparent Git Encryption
 
-This project heavyly based(forked) on [git-encrypt][8]
+This project based(forked) on [git-encrypt][8] by Woody Gilk(@shadowhand) but diverged and hard to
+merge. It has own uniq features.
 The gitcrypt tool is inspired by [this document][1] written by [Ning Shang][2],
 which was in turn inspired by [this post][3]. Without these two documents,
 by people much smarter than me, gitcrypt would not exist.
@@ -13,7 +14,7 @@ and understand the implications of using this tool before you go crazy with it.
 * It possible to merge(and resolve conflicts) in encrypted repos. Repos must have same passwords.
 It is realized by custom merge driver "gitcrypt-merge"
 
-* You can use ssh-private key(also with passphrase) instead of password **Not Vefified on Windows**
+* You can use ssh-private key(also with passphrase) instead of password **Not Verified on Windows**
 (actually gitcrypt uses only part of your private key hased by sha512)
 
 		$ Generate a random password? [Y/n]n
@@ -29,7 +30,7 @@ It is realized by custom merge driver "gitcrypt-merge"
 		...
 		$ ...git-encrypt filter enabled
 
-* You can encrypt/decrypt and recrypt(change passphrase) all history **Not Vefified on Windows**
+* You can encrypt/decrypt and recrypt(change passphrase) all history **Not Verified on Windows**
 
 		$ gitcrypt crypthistory
 		$ gitcrypt decrypthistory
@@ -56,7 +57,7 @@ And it and it's internal files must be accessible in your `$PATH`:
 
 ### Gentoo
 
-Or you can use my home little overlay for Gentoo: [https://github.com/kinnalru/hoverlay][https://github.com/kinnalru/hoverlay]
+Or you can use my home little overlay for Gentoo: https://github.com/kinnalru/hoverlay
 
 ### For Windows
 
