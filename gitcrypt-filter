@@ -12,11 +12,16 @@ IFS="
 
 export GDBGTAB="${GDBGTAB}  "
 
+echo f1
 for x in $GITCRYPT_AFFECTED_FILES; do
+echo f2
     cmd="cat \"$x\" | $@ > \"$x.tmp\""
     if [ -f "$x" ]; then
+echo f3
         _debug "- $cmd"
+echo f4
         eval $cmd || continue 
+echo f5
         cat "$x.tmp" > "$x" 
         rm -f "$x.tmp"
     fi

@@ -11,8 +11,8 @@ trap "exit 0" INT
 trap "exit 0" TERM
 trap "rm -f \"$WATCH_FILE\" &> /dev/null; exit 0" EXIT
 
-[ -z "$GITCRYPT_TIMER" ] && GITCRYPT_TIMER="30"
-[ -z "$GITCRYPT_TIMEOUT" ] && GITCRYPT_TIMEOUT="40"
+[ -z "$GITCRYPT_TIMER" ] && GITCRYPT_TIMER="3"
+[ -z "$GITCRYPT_TIMEOUT" ] && GITCRYPT_TIMEOUT="6"
 
 
 while ((1)); do

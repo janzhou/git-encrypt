@@ -4,6 +4,8 @@
 GIT_DIR=$(eval echo "${GIT_DIR}" 2> /dev/null)
 GIT_DIR=`readlink -e "${GIT_DIR}"`
 
+PASS=$1
+
 die() {
     echo "Error: $@"
     exit -1
@@ -15,21 +17,22 @@ GITCRYPT_KEY_ENCRYPTED=`readlink -e "$GITCRYPT_KEY_ENCRYPTED"` || die "can't rea
 
 [ -z "$GITCRYPT_KEY" ] && GITCRYPT_KEY=$GIT_DIR/key_decrypt.tmp
 
-
 GITCRYPT_ENCRYPTED_FILE=`eval echo ${GITCRYPT_KEY_ENCRYPTED} 2> /dev/null` || exit 1
 GITCRYPT_FILE=`eval echo ${GITCRYPT_KEY} 2> /dev/null` || exit 1
 
 GITCRYPT_ENCRYPTED_FILE=`readlink -e "${GITCRYPT_ENCRYPTED_FILE}"`
-GITCRYPT_FILE=`readlink -e "${GITCRYPT_FILE}"`
 
 decrypt_file() {
-    KEY=$(openssl rsa -in "$GITCRYPT_ENCRYPTED_FILE") || die "can't decrypt private key with openssl"
-    echo "$KEY" | openssl dgst -sha512 | sed s/.*\ // > "${GITCRYPT_FILE}" 2> /dev/null || (rm -f "${GITCRYPT_FILE}" &> /dev/null && exit 1)
+    if [ "$PASS" == "gpg" ]; then
+      cat "$GITCRYPT_ENCRYPTED_FILE" | gpg --decrypt > "$GITCRYPT_FILE" || exit 1
+    else
+      openssl enc -d -base64 -aes-256-cbc -k "$PASS" -in "$GITCRYPT_ENCRYPTED_FILE" > "$GITCRYPT_FILE" || exit 1
+    fi
 
     chmod 600 "${GITCRYPT_FILE}" &> /dev/null || exit 1
 
-    export GITCRYPT_TIMER="30"
-    export GITCRYPT_TIMEOUT="40"
+    export GITCRYPT_TIMER="3"
+    export GITCRYPT_TIMEOUT="6"
     setsid sh -c "gitcrypt-watchdog \"$GITCRYPT_FILE\" &" &> /dev/null
 }
 
@@ -37,7 +40,7 @@ if [ ! -s "$GITCRYPT_FILE" ]; then
     decrypt_file
 else
     # try to deted lost(unwatched) file, for example when crash occured
-    DANGLING="120"
+    DANGLING="40"
 
     AGE=$((`date +%s` - `stat -c %Z "${GITCRYPT_FILE}"`))
     if (( "$AGE" > "$DANGLING" )); then
