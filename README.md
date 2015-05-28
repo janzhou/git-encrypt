@@ -111,6 +111,11 @@ cipher mode, and what files should be encrypted.
     $ cd my-repo
     $ gitcrypt init
 
+Useful example to mark *.skip files not-encryptable:
+	$ cat .git/info/attributes
+	$ * filter=encrypt diff=encrypt merge=encrypt
+	$ *.skip text diff merge filter
+
 
 Your repository is now set up! Any time you `git add` a file that matches the
 filter pattern the `clean` filter is applied, automatically encrypting the file
