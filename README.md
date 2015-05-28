@@ -111,6 +111,13 @@ cipher mode, and what files should be encrypted.
     $ cd my-repo
     $ gitcrypt init
 
+Useful example to mark *.skip files not-encryptable:
+
+	$ cat .git/info/attributes
+	$ * filter=encrypt diff=encrypt merge=encrypt
+	$ *.skip text diff merge filter
+
+
 Your repository is now set up! Any time you `git add` a file that matches the
 filter pattern the `clean` filter is applied, automatically encrypting the file
 before it is staged. Using `git diff` will work normally, as it automatically
@@ -193,6 +200,10 @@ Once configuration is complete, reset and checkout all the files:
     $ git reset --hard HEAD
 
 All the files in the are now decrypted and ready to be edited.
+
+
+**Note that if you have diffrent salt you will see that files _modified_ but git diff show none.
+Just commit and push this invisible changes**
 
 # Conclusion
 

@@ -1,6 +1,6 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 
-readonly VERSION="0.4.1"
+readonly VERSION="0.4.2"
 readonly DEFAULT_CIPHER="aes-256-cbc"
 
 [ -z "$GIT_DIR" ] && GIT_DIR=".git"
@@ -143,6 +143,7 @@ init_config() {
             attrs=".gitattributes"
             ;;
         *)
+			mkdir "$GIT_DIR/info/"
             attrs="$GIT_DIR/info/attributes"
             ;;
     esac
