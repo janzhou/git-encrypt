@@ -3,188 +3,193 @@
 readonly VERSION="0.4.2"
 readonly DEFAULT_CIPHER="aes-256-cbc"
 
-[ -z "$GIT_DIR" ] && GIT_DIR=".git"
+[[ -z "$GIT_DIR" ]] && GIT_DIR=".git"
 
+SECRET_FILE="$(git rev-parse --show-toplevel)/.gitcryptsecret"
 KEY_LENGTH=32
 
 die() {
-    echo "Error: $@"
-    exit -1
+  if [ "$GITCRYPTLOGGER" ]; then
+    logger -t GITCRYPT -s "[Error] $@"
+  else
+    echo "Error: $@" 1>&2
+  fi
+  exit -1
+}
+
+debug() {
+  [ -z "$GITCRYPTDEBUG" ] || echo -e "GCDBG: ${GCDBGTAB} ${1}" 1>&2
 }
 
 check_distr() {
-    which "$1" &> /dev/null || die "$1 not found in PATH - check gitcrypt distribution"
+  which "$1" &> /dev/null || die "$1 not found in PATH - check gitcrypt distribution"
 }
 
-# check_distr "gitcrypt-restore-key"
+check_distr "gitcrypt-restore-key"
 check_distr "gitcrypt-merge"
-# check_distr "gitcrypt-watchdog"
+check_distr "gitcrypt-watchdog"
 check_distr "gitcrypt-filter"
 
 _disable() {
-    _debug "=> Disabling gitcrypt facility"
-    git config --unset filter.encrypt.smudge
-    git config --unset filter.encrypt.clean
-    git config --unset filter.encrypt.required
-    git config --unset diff.encrypt.textconv
+  debug "=> Disabling gitcrypt facility"
+  git config --unset filter.encrypt.smudge
+  git config --unset filter.encrypt.clean
+  git config --unset filter.encrypt.required
+  git config --unset diff.encrypt.textconv
 
-    git config --unset merge.encrypt.name
-    git config --unset merge.encrypt.driver
-    git config --remove-section filter.encrypt &> /dev/null
-    git config --remove-section diff.encrypt &> /dev/null
-    git config --remove-section merge.encrypt &> /dev/null
+  git config --unset merge.encrypt.name
+  git config --unset merge.encrypt.driver
+  git config --remove-section filter.encrypt &> /dev/null
+  git config --remove-section diff.encrypt &> /dev/null
+  git config --remove-section merge.encrypt &> /dev/null
 }
 
 _enable() {
-    _debug "=> Enabling gitcrypt facility"
-    git config filter.encrypt.smudge "gitcrypt smudge"
-    git config filter.encrypt.clean "gitcrypt clean"
-    git config filter.encrypt.required
-    git config diff.encrypt.textconv "gitcrypt diff"
+  debug "=> Enabling gitcrypt facility"
+  git config filter.encrypt.smudge "gitcrypt smudge"
+  git config filter.encrypt.clean "gitcrypt clean"
+  git config filter.encrypt.required
+  git config diff.encrypt.textconv "gitcrypt diff"
 
-    git config merge.encrypt.name "gitcrypt merge driver"
-    git config merge.encrypt.driver "gitcrypt-merge %A %O %B %L"
-}
-
-_debug() {
-    [ -z "$GITCRYPTDEBUG" ] || echo -e "GCDBG: ${GDBGTAB} ${1}"
+  git config merge.encrypt.name "gitcrypt merge driver"
+  git config merge.encrypt.driver "gitcrypt-merge %A %O %B %L"
 }
 
 
-
-_generate_masterkey() {
-  cat /dev/urandom | LC_ALL="C" tr -dc '!@#$%^&*()_A-Z-a-z-0-9' | head -c${KEY_LENGTH}
+generate_secret() {
+  debug "=> Generating secret..."
+  local secret=$(cat /dev/urandom | LC_ALL="C" tr -dc '!@#$%^&*()_A-Z-a-z-0-9' | head -c${KEY_LENGTH} 2> /dev/null)
+  [[ ${#secret} -eq KEY_LENGTH ]] || die "generated key length is wrong: ${@secret} instead of ${KEY_LENGTH}"
+  echo $secret
 }
 
-_master() {
-  echo "$(git rev-parse --show-toplevel)/.gitcryptmaster" 
-}
-
-_encrypt_masterkey() {
-  local master=$(_master)
+encrypt_secret() {
   if [ "$PASS" == "gpg" ]; then
-    echo $(_generate_masterkey) | gpg --encrypt --armor > "$master"
+    generate_secret | gpg --encrypt --armor > "$SECRET_FILE"
   else
-    echo $(_generate_masterkey) | openssl enc -base64 -aes-256-cbc -k "$PASS" > "$master"
+    generate_secret | openssl enc -base64 -aes-256-cbc -k "$PASS" > "$SECRET_FILE"
   fi
 }
 
-_decrypt_masterkey() {
-	  local master=$(_master)
-	  [[ -r "$master" ]] || die "can't read master password $master"
+decrypt_secret() {
+	  [[ -r "$SECRET_FILE" ]] || die "can't read secret from $SECRET_FILE"
+    local key
 	  if [ "$PASS" == "gpg" ]; then
-	    KEY=$(cat "$master" | gpg --decrypt || die "can't decrypt masterkey")
+      key=$(cat "$SECRET_FILE" | gpg --decrypt) 2>/dev/null || die "can't decrypt secret"
 	  else
-		  KEY=$(openssl enc -d -base64 -aes-256-cbc -k "$PASS" -in "$master" || die "can't decrypt masterkey")
+		  key=$(openssl enc -d -base64 -aes-256-cbc -k "$PASS" -in "$SECRET_FILE")  2>/dev/null || die "can't decrypt secret"
 	  fi
 
-
-    echo "PASS:${PASS}"
-    echo "KEY:${KEY}"
-    [[ ${#KEY} -eq KEY_LENGTH ]] || die "decrypted key length is wrong"
+    [[ ${#key} -eq KEY_LENGTH ]] || die "decrypted key length is wrong"
+    echo $key
 }
 
-_salt() {
+mksalt() {
   local md5=$(which md5 2>/dev/null || which md5sum 2>/dev/null)
   LC_ALL="C" echo "$1" | tr -dc 'a-e-0-9' | $md5 | cut -c-16
 }
 
 
 init_config() {
-    local answer
+  local answer
 
-    if [ ! -d "$GIT_DIR" ]; then
-        echo "Directory is not a git repository. Did you forget to run 'git init'?"
-        return 1
-    fi
+  if [ ! -d "$GIT_DIR" ]; then
+    echo "Directory is not a git repository. Did you forget to run 'git init'?"
+    return 1
+  fi
+
+  while [ 1 ]; do
+
+    while [ -z "$PASS" ]; do
+      echo "Please select masterkey encryption type:"
+      echo " type 'gpg' for use gpg"
+      echo " type path to ssh-private key ex: ~/.ssh/id_rsa"
+      echo " or type <passphrase> wich will encrypt masterkey"
+      read PASS
+    done
 
     while [ 1 ]; do
+      echo -n "What encryption cipher do you want to use? [$DEFAULT_CIPHER] "
+      read CIPHER
+      [ -z "$CIPHER" ] && CIPHER="$DEFAULT_CIPHER"
 
-        while [ -z "$PASS" ]; do
-          echo "Please select masterkey encryption type:"
-          echo " type 'gpg' for use gpg"
-          echo " type path to ssh-private key ex: ~/.ssh/id_rsa"
-          echo " or type <passphrase> wich will encrypt masterkey"
-          read PASS
-        done
+      local exists
+      exists=$(openssl list-cipher-commands | grep "$CIPHER")
+      [ $? -eq 0 ] && break
 
-        while [ 1 ]; do
-            echo -n "What encryption cipher do you want to use? [$DEFAULT_CIPHER] "
-            read CIPHER
-            [ -z "$CIPHER" ] && CIPHER="$DEFAULT_CIPHER"
-
-            local exists
-            exists=$(openssl list-cipher-commands | grep "$CIPHER")
-            [ $? -eq 0 ] && break
-
-            echo "Error: Cipher '$CIPHER' is not available"
-        done
-
-        echo -e "\nThis configuration will be stored:\n"
-        echo "pass:   $PASS"
-        echo "cipher: $CIPHER"
-        echo -e -n "\nDoes this look right? [Y/n] "
-        read answer
-
-        case "$answer" in
-            n*|N*)
-                # Reconfigure
-                unset -v PASS
-                unset -v CIPHER
-                ;;
-            *)
-                # Finished
-                break
-                ;;
-        esac
+      echo "Error: Cipher '$CIPHER' is not available"
     done
 
-    echo -n "Do you want to use $GIT_DIR/info/attributes? [Y/n] "
+    echo -e "\nThis configuration will be stored:\n"
+    echo "pass:   $PASS"
+    echo "cipher: $CIPHER"
+    echo -e -n "\nDoes this look right? [Y/n] "
     read answer
 
-    local attrs
     case "$answer" in
-        n*|N*)
-            attrs=".gitattributes"
-            ;;
-        *)
-			mkdir "$GIT_DIR/info/"
-            attrs="$GIT_DIR/info/attributes"
-            ;;
+      n*|N*)
+        # Reconfigure
+        unset -v PASS
+        unset -v CIPHER
+        ;;
+      *)
+        # Finished
+        break
+        ;;
     esac
 
-    local patterns
-    echo -n "What files do you want encrypted? [*] "
-    read patterns
-    [ -z "$patterns" ] && patterns="*"
+  done
 
-    set -o noglob
-    for pattern in ${patterns}; do
-        echo "$pattern filter=encrypt diff=encrypt merge=encrypt" >> $attrs
-        echo ".gitcryptmaster filter diff merge text" >> $attrs
-        echo ".gitattributes filter diff merge text" >> $attrs
-    done
-    set +o noglob
-    echo "[merge]" >> $attrs
-    echo "    renormalize=true" >> $attrs
+  echo -n "Do you want to use $GIT_DIR/info/attributes? [Y/n] "
+  read answer
 
-    # Encryption
-    chmod 600 "$GIT_DIR"/config
+  local attrs
+  case "$answer" in
+    n*|N*)
+      attrs=".gitattributes"
+      ;;
+    *)
+		  mkdir -p "$GIT_DIR/info/"
+      attrs="$GIT_DIR/info/attributes"
+      ;;
+  esac
 
-    if [ ! -r "$(_master)" ]; then
-      _encrypt_masterkey
-  	  git add $(_master)
-  	  git commit -m "master key initilized"
-    fi
-    _decrypt_masterkey
+  local patterns
+  echo -n "What files do you want encrypted? [*] "
+  read patterns
+  [ -z "$patterns" ] && patterns="*"
 
-    git config gitcrypt.cipher "$CIPHER"
+  set -o noglob
+  for pattern in ${patterns}; do
+    echo "$pattern filter=encrypt diff=encrypt merge=encrypt" >> $attrs
+    echo ".gitcryptsecret filter diff merge text" >> $attrs
+    echo ".gitattributes filter diff merge text" >> $attrs
+  done
+  set +o noglob
+  echo "[merge]" >> $attrs
+  echo "    renormalize=true" >> $attrs
+
+  chmod 600 "$GIT_DIR"/config
+
+  if [ ! -r "$SECRET_FILE" ]; then
+    encrypt_secret
+	  git add "$SECRET_FILE"
+	  git commit -m "secret initilized"
+  fi
+  local secret
+  secret=$(decrypt_secret)
+
+  git config gitcrypt.cipher "$CIPHER"
+  if [ "$PASS" == "gpg" ]; then
     git config gitcrypt.pass "$PASS"
-    git config gitcrypt.key "$KEY"
-    git config gitcrypt.salt "$(_salt $KEY)"
+  else
+    git config gitcrypt.pass ""
+  fi
+  git config gitcrypt.secret "$secret"
+  git config gitcrypt.salt "$(mksalt $secret)"
 
-    # Filters
-    _enable
+  # Filters
+  _enable
 }
 
 
@@ -201,7 +206,7 @@ init_config() {
     #if [[ -s "$PRIVATE_KEY" ]]; then
     #    export GITCRYPT_KEY_ENCRYPTED="$PRIVATE_KEY"
     #    PASS=$(gitcrypt-restore-key) || die "can't decrypt key"
-    #    _debug "= key decrypted"
+    #    debug "= key decrypted"
     #    unset GITCRYPT_KEY_ENCRYPTED
     #fi
 
@@ -210,122 +215,127 @@ init_config() {
 # }
 
 _clean() {
-	openssl enc -base64 -$CIPHER -S "$SALT" -k "$KEY"
+	openssl enc -base64 -$CIPHER -S "$SALT" -k "$SECRET"
 }
 
 _smudge() {
-	openssl enc -d -base64 -$CIPHER -k "$KEY" 2> /dev/null || cat
+	openssl enc -d -base64 -$CIPHER -k "$SECRET" 2> /dev/null || cat
 }
 
 _diff() {
-	openssl enc -d -base64 -$CIPHER -k "$KEY" -in "$1" 2> /dev/null || cat "$1"
+	openssl enc -d -base64 -$CIPHER -k "$SECRET" -in "$1" 2> /dev/null || cat "$1"
 }
 
-_listaffected() {
-    # Collect files affected byt crypting(through attributes and files in repo)
-    IFS_BACK=$IFS
-    IFS="
+export_affected() {
+  # Collect files affected byt crypting(through attributes and files in repo)
+  IFS_BACK=$IFS
+  IFS="
 "
-    local GITCRYPT_FILES=$(git ls-tree --name-only --full-tree -r HEAD) || die "Can't collect list of files in repo"
-    ARRAY=()
-    for x in $GITCRYPT_FILES; do
-        git check-attr filter "$x" | grep encrypt &> /dev/null
-        if [ $? -eq 0 ]; then
-            _debug " - adding file #{$x} to affected list"
-            ARRAY+=("$x")
-        fi
-    done
-    export GITCRYPT_AFFECTED_FILES=${ARRAY[@]}
-    _debug "= Affected files: \n  [\n`printf -- '  %s\n' \"${GITCRYPT_AFFECTED_FILES[@]}\"`\n  ]"
-    IFS=$IFS_BACK
+  local files
+  files=$(git ls-tree --name-only --full-tree -r HEAD) || die "Can't collect list of files in repo"
+  ARRAY=()
+  for x in $files; do
+    git check-attr filter "$x" | grep encrypt &> /dev/null
+    if [ $? -eq 0 ]; then
+      debug " - adding file #{$x} to affected list"
+      ARRAY+=("$x")
+    fi
+  done
+  export GITCRYPT_AFFECTED_FILES=${ARRAY[@]}
+  debug "= Affected files: \n  [\n`printf -- '  %s\n' \"${GITCRYPT_AFFECTED_FILES[@]}\"`\n  ]"
+  IFS=$IFS_BACK
 }
 
-_crypthistory_impl() {
-    _debug " => Crypting history"
-    export GDBGTAB="${GDBGTAB}  "
-    _disable
-    git reset --hard &> /dev/null
-    _listaffected
-    git filter-branch --prune-empty --tree-filter "gitcrypt-filter '$0 clean'" -f
-    _enable
-    git reset --hard &> /dev/null
-    export GDBGTAB={GDBGTAB/\ \ /}
+_reset() {
+  rm `git ls` &> /dev/null
+  git reset --hard &> /dev/null
+}
+
+crypthistory_impl() {
+  debug " => Crypting history"
+  export GCDBGTAB="${GCDBGTAB}  "
+  _disable
+  _reset
+  export_affected
+  git filter-branch --prune-empty --tree-filter "gitcrypt-filter '$0 clean'" -f
+  _enable
+  _reset
+  export GCDBGTAB={GCDBGTAB/\ \ /}
 }
 
 _crypthistory() {
-    echo -n "You MUST run 'crypthistory' BEFORE any encrypted commits."
-    echo -n "Do you want to recrypt all history? This may corrut your data? [Y/n]"
-    read answer
+  echo -n "You MUST run 'crypthistory' BEFORE any encrypted commits."
+  echo -n "Do you want to recrypt all history? This may corrut your data? [Y/n]"
+  read answer
 
-    case "$answer" in
-        n*|N*)
-            exit 0
-            ;;
-        *)
-            echo "This may take a while depends on file sizes in repo..."
-            ;;
-    esac
+  case "$answer" in
+    n*|N*)
+      exit 0
+      ;;
+    *)
+      echo "This may take a while depends on file sizes in repo..."
+      ;;
+  esac
 
-    _crypthistory_impl
+  crypthistory_impl
 }
 
 _decrypthistory() {
-    _debug " => Decrypting history"
-    export GDBGTAB="${GDBGTAB}  "
-    _disable
-    git reset --hard &> /dev/null
+  debug " => Decrypting history"
+  export GCDBGTAB="${GCDBGTAB}  "
+  _disable
+  _reset
 
-    if [ "$1" == "all" ]; then
-        export GITCRYPT_AFFECTED_FILES="*"
-        _debug "= force decrypt ALL files"
-    else
-        _listaffected
-    fi
+  if [ "$1" == "all" ]; then
+      export GITCRYPT_AFFECTED_FILES="*"
+      debug "= force decrypt ALL files"
+  else
+      export_affected
+  fi
 
-    git filter-branch --prune-empty --tree-filter "gitcrypt-filter '$0 smudge'" -f
-    git reset --hard &> /dev/null
-    export GDBGTAB={GDBGTAB/\ \ /}
+  git filter-branch --prune-empty --tree-filter "gitcrypt-filter '$0 smudge'" -f
+  _reset
+  export GCDBGTAB={GCDBGTAB/\ \ /}
 }
 
-_recrypt() {
-    echo -n "Do you want to change password and recrypt repo with new one? [Y/n]"
-    read answer
+# _recrypt() {
+#     echo -n "Do you want to change password and recrypt repo with new one? [Y/n]"
+#     read answer
 
-    case "$answer" in
-        n*|N*)
-            exit 0
-            ;;
-        *)
-            echo -n "Enter your new passphrase or path to key: "
-            read PASS
-            ;;
-    esac
+#     case "$answer" in
+#         n*|N*)
+#             exit 0
+#             ;;
+#         *)
+#             echo -n "Enter your new passphrase or path to key: "
+#             read PASS
+#             ;;
+#     esac
 
-    _debug "=> Recrypting history"
-    export GDBGTAB="${GDBGTAB}  "
-    _decrypthistory
-    git config gitcrypt.pass "$PASS"
-    chmod 600 "$GIT_DIR"/config
-    _crypthistory_impl
-    export GDBGTAB={GDBGTAB/\ \ /}
-}
+#     debug "=> Recrypting history"
+#     export GCDBGTAB="${GCDBGTAB}  "
+#     _decrypthistory
+#     git config gitcrypt.pass "$PASS"
+#     chmod 600 "$GIT_DIR"/config
+#     _crypthistory_impl
+#     export GCDBGTAB={GCDBGTAB/\ \ /}
+# }
 
 case "$1" in
-    clean|smudge|diff|enable|disable|crypthistory|decrypthistory|recrypt)
+    clean|smudge|diff|enable|disable|crypthistory|decrypthistory|recrypt|reset)
         # Need a shared salt
         SALT=$(git config gitcrypt.salt)
         [[ -z "$SALT" ]] && die "Gitcrypt: shared salt (gitcrypt.salt) has not been configured"
 
         # Need a secure passphrase
         PASS=$(git config gitcrypt.pass)
-        [[ -z "$PASS" ]] && die "Gitcrypt: secure passphrase (gitcrypt.pass) has not been configured"
 
         # And a cipher mode
         CIPHER=$(git config gitcrypt.cipher)
         [ -z "$CIPHER" ] && CIPHER="$DEFAULT_CIPHER"
 
-        KEY=$(git config gitcrypt.key)
-        [[ -z "$KEY" ]] && die "Gitcrypt: encryption key has not been configured"
+        SECRET=$(git config gitcrypt.secret)
+        [[ -z "$SECRET" ]] && die "Gitcrypt: secret key has not been configured"
 
         # Execute command
         _$1 "$2"
@@ -339,10 +349,9 @@ case "$1" in
         echo "gitcrypt version $VERSION"
         ;;
     *)
-
         # Not a valid option
         if [ -z "$1" ]; then
-            echo "Gitcrypt: available options: init, enable, disable, crypthistory, decrypthistory, recrypt, version"
+            echo "Gitcrypt: available options: init, version, clean|smudge|diff|enable|disable|crypthistory|decrypthistory|recryptn"
         else
             echo "Gitcrypt: command does not exist: $1"
         fi
