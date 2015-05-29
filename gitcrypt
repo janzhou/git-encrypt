@@ -5,6 +5,8 @@ readonly DEFAULT_CIPHER="aes-256-cbc"
 
 [ -z "$GIT_DIR" ] && GIT_DIR=".git"
 
+KEY_LENGTH=32
+
 die() {
     echo "Error: $@"
     exit -1
@@ -14,9 +16,9 @@ check_distr() {
     which "$1" &> /dev/null || die "$1 not found in PATH - check gitcrypt distribution"
 }
 
-check_distr "gitcrypt-restore-key"
+# check_distr "gitcrypt-restore-key"
 check_distr "gitcrypt-merge"
-check_distr "gitcrypt-watchdog"
+# check_distr "gitcrypt-watchdog"
 check_distr "gitcrypt-filter"
 
 _disable() {
@@ -51,7 +53,7 @@ _debug() {
 
 
 _generate_masterkey() {
-  cat /dev/urandom | LC_ALL="C" tr -dc '!@#$%^&*()_A-Z-a-z-0-9' | head -c64
+  cat /dev/urandom | LC_ALL="C" tr -dc '!@#$%^&*()_A-Z-a-z-0-9' | head -c${KEY_LENGTH}
 }
 
 _master() {
@@ -68,15 +70,18 @@ _encrypt_masterkey() {
 }
 
 _decrypt_masterkey() {
-  while [ -z "$MKEY" ]; do
 	  local master=$(_master)
 	  [[ -r "$master" ]] || die "can't read master password $master"
 	  if [ "$PASS" == "gpg" ]; then
-	    MKEY=$(cat "$master" | gpg --decrypt || die "can't decrypt masterkey")
+	    KEY=$(cat "$master" | gpg --decrypt || die "can't decrypt masterkey")
 	  else
-		  MKEY=$(openssl enc -d -base64 -aes-256-cbc -k "$PASS" -in "$master" || die "can't decrypt masterkey")
+		  KEY=$(openssl enc -d -base64 -aes-256-cbc -k "$PASS" -in "$master" || die "can't decrypt masterkey")
 	  fi
-  done
+
+
+    echo "PASS:${PASS}"
+    echo "KEY:${KEY}"
+    [[ ${#KEY} -eq KEY_LENGTH ]] || die "decrypted key length is wrong"
 }
 
 _salt() {
@@ -171,18 +176,19 @@ init_config() {
   	  git add $(_master)
   	  git commit -m "master key initilized"
     fi
-    take_pass_from_cache
+    _decrypt_masterkey
 
-    git config gitcrypt.salt "$(_salt $MKEY)"
-    git config gitcrypt.pass "$PASS"
     git config gitcrypt.cipher "$CIPHER"
+    git config gitcrypt.pass "$PASS"
+    git config gitcrypt.key "$KEY"
+    git config gitcrypt.salt "$(_salt $KEY)"
 
     # Filters
     _enable
 }
 
 
-take_pass_from_cache() {
+# take_pass_from_cache() {
     #expand ~/file to absolute filepath
     #PRIVATE_KEY=$(eval echo "${PASS}" 2> /dev/null)
     #if expr "$PRIVATE_KEY" : ".*\.pub" > /dev/null ; then
@@ -199,23 +205,20 @@ take_pass_from_cache() {
     #    unset GITCRYPT_KEY_ENCRYPTED
     #fi
 
-	export GITCRYPT_KEY_ENCRYPTED=$(_master)
-  MKEY=$(gitcrypt-restore-key "$PASS") || die "can't decrypt key"
-}
+	# export GITCRYPT_KEY_ENCRYPTED=$(_master)
+  # KEY=$(gitcrypt-restore-key "$PASS") || die "can't decrypt key"
+# }
 
 _clean() {
-	take_pass_from_cache
-	openssl enc -base64 -$CIPHER -S "$SALT" -k "$MKEY"
+	openssl enc -base64 -$CIPHER -S "$SALT" -k "$KEY"
 }
 
 _smudge() {
-	take_pass_from_cache
-	openssl enc -d -base64 -$CIPHER -k "$MKEY" 2> /dev/null || cat
+	openssl enc -d -base64 -$CIPHER -k "$KEY" 2> /dev/null || cat
 }
 
 _diff() {
-	take_pass_from_cache
-	openssl enc -d -base64 -$CIPHER -k "$MKEY" -in "$1" 2> /dev/null || cat "$1"
+	openssl enc -d -base64 -$CIPHER -k "$KEY" -in "$1" 2> /dev/null || cat "$1"
 }
 
 _listaffected() {
@@ -311,19 +314,18 @@ case "$1" in
     clean|smudge|diff|enable|disable|crypthistory|decrypthistory|recrypt)
         # Need a shared salt
         SALT=$(git config gitcrypt.salt)
-        if [ -z "$SALT" ]; then
-            die "Gitcrypt: shared salt (gitcrypt.salt) has not been configured"
-        fi
+        [[ -z "$SALT" ]] && die "Gitcrypt: shared salt (gitcrypt.salt) has not been configured"
 
         # Need a secure passphrase
         PASS=$(git config gitcrypt.pass)
-        if [ -z "$PASS" ]; then
-            die "Gitcrypt: secure passphrase (gitcrypt.pass) has not been configured"
-        fi
+        [[ -z "$PASS" ]] && die "Gitcrypt: secure passphrase (gitcrypt.pass) has not been configured"
 
         # And a cipher mode
         CIPHER=$(git config gitcrypt.cipher)
         [ -z "$CIPHER" ] && CIPHER="$DEFAULT_CIPHER"
+
+        KEY=$(git config gitcrypt.key)
+        [[ -z "$KEY" ]] && die "Gitcrypt: encryption key has not been configured"
 
         # Execute command
         _$1 "$2"

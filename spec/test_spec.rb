@@ -7,7 +7,8 @@ RSpec.configure do |config|
   config.formatter = :documentation
 end
 
-TMPDIR=%x(mktemp -d).strip
+`mkdir -p /tmp/gc/`
+TMPDIR=%x(mktemp -d -p /tmp/gc).strip
 BASEREPO="#{TMPDIR}/base"
 # CRYPTREPO="#{TMPDIR}/crypt"
 # CRYPTREPO2="#{TMPDIR}/crypt2"
@@ -39,26 +40,26 @@ NAMES={cr: 'crypted', cr1: 'crypted_1', re: 'recrypted', cr2: 'crypted_2', dc1: 
 
 PASS_TYPES=["gpg\n\n\n\n#{FILE1}\n", "mypassword\n\n\n\n#{FILE1}\n"]
 
-PASS_TYPES.each_with_index do |ptype, i|
-  num = "(#{i}) "
-  describe num + "Preparing git repo" do
+  describe num + "Testing gpg features" do
 
       before(:all) do
-        @repos = {}
+        @initstr = "gpg\n\n\n\n#{FILE1}\n"
+        @baserepo = "#{TMPDIR}/base"
       end
 
-      it num + "creating simple repo" do
+
+      it num + "creating base repo" do
           %x(
-              mkdir -p #{BASEREPO}
-              pushd #{BASEREPO}
-              git init
-              > .initial
-              git add .initial
-              git commit -m "initial"
-              echo -e "#{DATA1}" >> #{FILE1}
-              echo -e "#{DATA2}" >> #{FILE2}
-              git add "#{FILE1}" "#{FILE2}"
-              git commit -am "commit"
+            mkdir -p #{BASEREPO}
+            pushd #{BASEREPO}
+            git init
+            > .initial
+            git add .initial
+            git commit -m "initial"
+            echo -e "#{DATA1}" >> #{FILE1}
+            echo -e "#{DATA2}" >> #{FILE2}
+            git add "#{FILE1}" "#{FILE2}"
+            git commit -am "commit"
           )
           expect(File.read(BASEREPO+"/"+FILE1).strip).to eq DATA1
           expect(File.read(BASEREPO+"/"+FILE2).strip).to eq DATA2
@@ -75,69 +76,73 @@ PASS_TYPES.each_with_index do |ptype, i|
                 rm #{FILE1}
                 git reset --hard
             )
-
-            #fail on unencrypted file
+            expect(%x(git config gitcrypt.key).strip.length).to eq 32
             expect(File.read(FILE1).strip).to eq ""
             expect(File.read(FILE2).strip).to eq DATA2
           end
-      end
 
-      it num + "crypting repo [#{NAMES[:cr]}] history" do
-          Dir.chdir @repos[:cr]
-          %x(
-              echo "y\n" | gitcrypt crypthistory
-          )
-          expect(File.read(FILE1).strip).to eq DATA1
-          expect(File.read(FILE2).strip).to eq DATA2
-      end
-      
-      it num + "cloning crypted repo [#{NAMES[:cr]}] to [#{NAMES[:cr1]}]" do
-
-          @repos[:cr1] = clone_repo @repos[:cr], NAMES[:cr1] do |repo|
-            Dir.chdir repo
-            expect(File.read(FILE1).strip).to_not eq DATA1
-            expect(File.read(FILE2).strip).to eq DATA2
-
-            %x(
-                echo "#{ptype}" | gitcrypt init
-                rm #{FILE1}
-                git reset --hard
-            )
-
-            expect(File.read(FILE1).strip).to eq DATA1
-            expect(File.read(FILE2).strip).to eq DATA2
-          end
-
-      end
-
-      it num + "recrypting repo [#{NAMES[:cr1]}]" do
-          Dir.chdir @repos[:cr1]
-          newpass = "newpass"
-          %x(
-              echo "\n#{newpass}\n" | gitcrypt recrypt
-          )
-
-          @repos[:re] = clone_repo @repos[:cr1], NAMES[:re] do |repo|
-            Dir.chdir repo
-            expect(File.read(FILE1).strip).to_not eq DATA1
-            expect(File.read(FILE2).strip).to eq DATA2
-
-            %x(
-                echo "#{ptype}" | gitcrypt init
-                git reset --hard
-            )
-
-            expect(%x(git config gitcrypt.pass).strip).to eq newpass
-            expect(File.read(FILE1).strip).to eq DATA1
-            expect(File.read(FILE2).strip).to eq DATA2
-          end
-          
           Dir.chdir TMPDIR
           %x(
             pushd #{TMPDIR} && rm -rf *
           )
-
       end
+
+      # it num + "crypting repo [#{NAMES[:cr]}] history" do
+      #     Dir.chdir @repos[:cr]
+      #     %x(
+      #         echo "y\n" | gitcrypt crypthistory
+      #     )
+      #     expect(File.read(FILE1).strip).to eq DATA1
+      #     expect(File.read(FILE2).strip).to eq DATA2
+      # end
+      
+      # it num + "cloning crypted repo [#{NAMES[:cr]}] to [#{NAMES[:cr1]}]" do
+
+      #     @repos[:cr1] = clone_repo @repos[:cr], NAMES[:cr1] do |repo|
+      #       Dir.chdir repo
+      #       expect(File.read(FILE1).strip).to_not eq DATA1
+      #       expect(File.read(FILE2).strip).to eq DATA2
+
+      #       %x(
+      #           echo "#{ptype}" | gitcrypt init
+      #           rm #{FILE1}
+      #           git reset --hard
+      #       )
+
+      #       expect(File.read(FILE1).strip).to eq DATA1
+      #       expect(File.read(FILE2).strip).to eq DATA2
+      #     end
+
+      # end
+
+      # it num + "recrypting repo [#{NAMES[:cr1]}]" do
+      #     Dir.chdir @repos[:cr1]
+      #     newpass = "newpass"
+      #     %x(
+      #         echo "\n#{newpass}\n" | gitcrypt recrypt
+      #     )
+
+      #     @repos[:re] = clone_repo @repos[:cr1], NAMES[:re] do |repo|
+      #       Dir.chdir repo
+      #       expect(File.read(FILE1).strip).to_not eq DATA1
+      #       expect(File.read(FILE2).strip).to eq DATA2
+
+      #       %x(
+      #           echo "#{ptype}" | gitcrypt init
+      #           git reset --hard
+      #       )
+
+      #       expect(%x(git config gitcrypt.pass).strip).to eq newpass
+      #       expect(File.read(FILE1).strip).to eq DATA1
+      #       expect(File.read(FILE2).strip).to eq DATA2
+      #     end
+          
+      #     Dir.chdir TMPDIR
+      #     %x(
+      #       pushd #{TMPDIR} && rm -rf *
+      #     )
+
+      # end
 
       # it "decrypting repo [#{NAMES[:cr1]}]" do
       #     Dir.chdir @repos[:cr1]
@@ -245,6 +250,5 @@ PASS_TYPES.each_with_index do |ptype, i|
       #   expect(File.read(@repos[:cr2]+"/"+FILE1).strip).to eq File.read(@repos[:cr]+"/"+FILE1).strip
       # end
 
-  end
 end
 
