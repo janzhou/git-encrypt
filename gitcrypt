@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-readonly VERSION="0.4.2"
+readonly VERSION="0.4.3"
 readonly DEFAULT_CIPHER="aes-256-cbc"
 
 [[ -z "$GIT_DIR" ]] && GIT_DIR=".git"
@@ -25,9 +25,7 @@ check_distr() {
   which "$1" &> /dev/null || die "$1 not found in PATH - check gitcrypt distribution"
 }
 
-check_distr "gitcrypt-restore-key"
 check_distr "gitcrypt-merge"
-check_distr "gitcrypt-watchdog"
 check_distr "gitcrypt-filter"
 
 _disable() {
@@ -208,39 +206,20 @@ init_config() {
   local private=$(private_key "$PASS")
   if [ "$PASS" == "gpg" ]; then
     git config gitcrypt.pass "$PASS"
+    git config gitcrypt.secret ""
   elif [ -r "$private" ]; then
     git config gitcrypt.pass "$private"
+    git config gitcrypt.secret "$secret"
   else
     git config gitcrypt.pass ""
+    git config gitcrypt.secret "$secret"
   fi
-  git config gitcrypt.secret "$secret"
   git config gitcrypt.salt "$(mksalt $secret)"
 
   # Filters
   _enable
 }
 
-
-# take_pass_from_cache() {
-    #expand ~/file to absolute filepath
-    #PRIVATE_KEY=$(eval echo "${PASS}" 2> /dev/null)
-    #if expr "$PRIVATE_KEY" : ".*\.pub" > /dev/null ; then
-	#	#remove .pu extension if any
-    #    PRIVATE_KEY=$(echo "$PRIVATE_KEY" | sed s/.pub//)
-	#	PRIVATE_KEY=`readlink -e "$PRIVATE_KEY"`
-    #fi
-
-    #decrypt key and start watchdog for unencrypted file
-    #if [[ -s "$PRIVATE_KEY" ]]; then
-    #    export GITCRYPT_KEY_ENCRYPTED="$PRIVATE_KEY"
-    #    PASS=$(gitcrypt-restore-key) || die "can't decrypt key"
-    #    debug "= key decrypted"
-    #    unset GITCRYPT_KEY_ENCRYPTED
-    #fi
-
-	# export GITCRYPT_KEY_ENCRYPTED=$(_master)
-  # KEY=$(gitcrypt-restore-key "$PASS") || die "can't decrypt key"
-# }
 
 _clean() {
 	openssl enc -base64 -$CIPHER -S "$SALT" -k "$SECRET"
@@ -340,8 +319,12 @@ case "$1" in
         CIPHER=$(git config gitcrypt.cipher)
         [ -z "$CIPHER" ] && CIPHER="$DEFAULT_CIPHER"
 
-        SECRET=$(git config gitcrypt.secret)
-        [[ -z "$SECRET" ]] && die "Gitcrypt: secret key has not been configured"
+        if [ "$PASS" == "gpg" ]; then
+          SECRET=$(decrypt_secret)
+        else
+          SECRET=$(git config gitcrypt.secret)
+          [[ -z "$SECRET" ]] && die "Gitcrypt: secret key has not been configured"
+        fi
 
         # Execute command
         _$1 "$2"

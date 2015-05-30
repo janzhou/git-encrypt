@@ -1,8 +1,8 @@
 # Transparent Git Encryption
 
 This project based(forked) on [git-encrypt][8] by Woody Gilk(@shadowhand) but diverged and hard to
-merge. It has own uniq features.
-The gitcrypt tool is inspired by [this document][1] written by [Ning Shang][2],
+merge back. It has own uniq features.
+The original gitcrypt tool is inspired by [this document][1] written by [Ning Shang][2],
 which was in turn inspired by [this post][3]. Without these two documents,
 by people much smarter than me, gitcrypt would not exist.
 
@@ -11,34 +11,64 @@ and understand the implications of using this tool before you go crazy with it.
 
 ## Features
 
-* It possible to merge(and resolve conflicts) in encrypted repos. Repos must have same passwords.
-It is realized by custom merge driver "gitcrypt-merge"
+* Using strong master key to encrypt data.
 
-* You can use ssh-private key(also with passphrase) instead of password **Not Verified on Windows**
-(actually gitcrypt uses only part of your private key hased by sha512)
+* Master key can be encrypted/decrypting throug such facilities:
 
-		$ Generate a random password? [Y/n]n
-		$ Enter your passphrase: ~/.ssh/id_rsa
+  * *GPG*. The most secure way because master key not stored anywhere unencrypted. It has some performance issue because of decrypting is made on ANY FILE while commit/checkout/stage/diff/merge. Also it is possible to encrypt master key for multiple users(which PUBLIC keys you have) and can be used in multiuser encrypted repo.
 
-* You can recrypt old repo history with command:
+  * *passphrase*. The master key is decrypted once on repo initialization and stored in .git/config.
 
-		$ gitcrypt recrypt
-		$ Do you want to change password and recrypt repo with new one? [Y/n]y
-		$ Enter your passphrase: ~/.ssh/id_rsa
-		$ ... git-encrypt filter disabled
-		$ ... Rewrite 88dc2435a93e9741df3ccaa339ab38599145a4bb (1/3)Enter pass phrase for
+  * *SSH private-key*. It is suitable ONLY for personal use because ssh-private key is used to encrypt/decrypt master key. There is no public/private facility used but master key is encrypted with *sha512* hash of ssh-private key internals(decrypted if needed). The master key is decrypted once on repo initialization and stored in .git/config. _This made for users who has ssh-key but no gpg key_
+
+* It possible to merge(and resolve conflicts) in encrypted commits. It is realized by custom merge driver "gitcrypt-merge"
+
+* You can encrypt previous repo history with command:
+
+		$ gitcrypt crypthistory
+		$ You MUST run 'crypthistory' BEFORE any encrypted commits.Do you want to recrypt all history? This may corrut your data? [Y/n]
 		...
-		$ ...git-encrypt filter enabled
 
-* You can encrypt/decrypt and recrypt(change passphrase) all history **Not Verified on Windows**
+* You can encrypt/decrypt all history
 
 		$ gitcrypt crypthistory
 		$ gitcrypt decrypthistory
-		$ gitcrypt recrypt
+
+* You can enable/disable gitcrypt facility
+
+    $ gitcrypt disable
+    $ gitcrypt reset
+    $ gitcrypt enable
+    $ gitcrypt reset
+
+* You can add multiple users to allowed to encrypt master key when using GPG:
+    $ gitcrypt init
+    $ Please select masterkey encryption type:
+    $ type 'gpg' for use gpg
+    $ type path to ssh-private key ex: ~/.ssh/id_rsa
+    $ or type <passphrase> wich will encrypt masterkey
+    $ *gpg*
+    ...
+    $
+    $ You did not specify a user ID. (you may use "-r")
+    $ 
+    $ Current recipients:
+    $ 2048R/DEFD08C4 2015-01-13 "Samoilenko Yuri <kinnalru@gmail.com>"
+    $ 
+    $ Enter the user ID.  End with an empty line: gitcrypt@gmail.com
+    $ 
+    $ Current recipients:
+    $ 2048R/370F9A12 2015-05-30 "gitcrypt <gitcrypt@gmail.com>"
+    $ 2048R/DEFD08C4 2015-01-13 "Samoilenko Yuri <kinnalru@gmail.com>"
+    $
+    $ Enter the user ID.  End with an empty line: 
+    ...
+
+    Now kinnalru@gmail.com and gitcrypt@gmail.com can decrypt repo with own private gpg key.
 
 
 ## Requirements
-Openssl and git  must be installed and the binary must be available in your $PATH.
+Openssl and git must be installed and the binary must be available in your $PATH.
 
 ## Installation
 
@@ -74,38 +104,11 @@ available in it.
 > Path=C:\Python27\;C:\Python27\Scripts;E:\PortableGit\bin;E:\PortableGit\libexec\git-core;C:\windows\system32;C:\windows\;C:\window
 > s\system32\WBEM;c:\windows\System32\WindowsPowerShell\v1.0\;c:\i386\~configs;C:\Users\VKHANORK\AppData\Roaming\Python\Scripts
 
-Setup gitcrypt:
-
-> E:\>mkdir TEST
-> 
-> E:\>cd TEST
-> 
-> E:\TEST>git init
-> Initialized empty Git repository in E:/TEST/.git/
-> 
-> E:\TEST>git config core.autocrlf false
-> 
-> E:\TEST>E:\PortableGit\bin\bash.exe E:\PortableGit\bin\gitcrypt init
-> Generate a random salt? [Y/n]
-> Generate a random password? [Y/n]
-> What encryption cipher do you want to use? [aes-256-ecb]
-> 
-> This configuration will be stored:
-> 
-> salt:   5ecc05565042de81
-> pass:   iLC#GkuzE1iOmUVItIQww8**oBDTfKE2
-> cipher: aes-256-ecb
-> 
-> Does this look right? [Y/n]
-> Do you want to use .git/info/attributes? [Y/n]
-> What files do you want encrypted? [*]
-> 
-> E:\TEST>
 
 ## Configuration
 
 To quickly setup gitcrypt interactively, run `gitcrypt init` from the root
-of your git repository. It will ask you for a passphrase, shared salt,
+of your git repository. It will ask you for an encrypt facility GPG/SSH/passphrase,
 cipher mode, and what files should be encrypted.
 
     $ cd my-repo
@@ -113,9 +116,13 @@ cipher mode, and what files should be encrypted.
 
 Useful example to mark *.skip files not-encryptable:
 
-	$ cat .git/info/attributes
-	$ * filter=encrypt diff=encrypt merge=encrypt
-	$ *.skip text diff merge filter
+  	$ cat .git/info/attributes
+    $ * filter=encrypt diff=encrypt merge=encrypt
+    $ .gitcryptsecret filter diff merge text
+    $ .gitattributes filter diff merge text
+    $ *.skip text diff merge filter
+    $ [merge]
+    $    renormalize=true
 
 
 Your repository is now set up! Any time you `git add` a file that matches the
@@ -125,58 +132,46 @@ decrypts file content as necessary.
 
 ### Manual Configuration
 
-First, you will need to add a shared salt (16 hex characters) and a secure
-passphrase to your git configuration:
+You can manually modify .git/config file:
 
-    $ git config gitcrypt.salt 0000000000000000
-    $ git config gitcrypt.pass my-secret-phrase
+    $ [gitcrypt]
+    $   cipher = aes-256-cbc
+    $   pass = gpg           # if gpg used
+    $   pass = ~/.ssh/id_rsa # if ssh-private key used
+    $   pass =               # empty if passphrase used
+    $   secret =             # empty if gpg used 
+    $   secret ="hnlR6m#sQY02HcD^22)k0EhMpf&SF*fxY&i4j0gCMdRKuVuI"
+    $   salt = 7214e82f24d5511d
+    $ [filter "encrypt"]
+    $   smudge = gitcrypt smudge
+    $   clean = gitcrypt clean
+    $ [diff "encrypt"]
+    $   textconv = gitcrypt diff
+    $ [merge "encrypt"]
+    $   name = gitcrypt merge driver
+    $   driver = gitcrypt-merge %A %O %B %L
 
-> It is possible to set these options globally using `git config --global`,
-but more secure to create a separate passphrase for every repository.
-
-The default [encryption cipher][5] is `aes-256-ecb`, which should be suitable
-for almost everyone. However, it is also possible to use a different cipher:
-
-    $ git config gitcrypt.cipher aes-256-ecb
-
-> An "ECB" mode is used because it encrypts in a format that provides usable
-text diff, meaning that a single change will not cause the entire file to be
-internally marked as changed. Because a static salt must be used, using "CBC"
-would provide very little, if any, increased security over "ECB" mode.
 
 Next, you need to define what files will be automatically encrypted using the
 [.git/info/attributes][6] file. Any file [pattern format][7] can be used here.
 
 To encrypt all the files in the repo:
 
-    * filter=encrypt diff=encrypt
+    * filter=encrypt diff=encrypt merge=encrypt
     [merge]
         renormalize = true
 
 To encrypt only one file, you could do this:
 
-    secret.txt filter=encrypt diff=encrypt
+    secret.txt filter=encrypt diff=encrypt merge=encrypt
 
 Or to encrypt all ".secure" files:
 
-    *.secure filter=encrypt diff=encrypt
+    *.secure filter=encrypt diff=encrypt merge=encrypt
 
 > If you want this mapping to be included in your repository, use a
 `.gitattributes` file instead and **do not** encrypt it.
 
-Next, you need to map the `encrypt` filter to `gitcrypt`:
-
-    $ git config filter.encrypt.smudge "gitcrypt smudge"
-    $ git config filter.encrypt.clean "gitcrypt clean"
-    $ git config diff.encrypt.textconv "gitcrypt diff"
-
-Or if you prefer to manually edit `.git/config`:
-
-    [filter "encrypt"]
-        smudge = gitcrypt smudge
-        clean = gitcrypt clean
-    [diff "encrypt"]
-        textconv = gitcrypt diff
 
 ## Decrypting Clones
 
@@ -197,13 +192,13 @@ performed on the original repository.
 
 Once configuration is complete, reset and checkout all the files:
 
-    $ git reset --hard HEAD
+    $ gitcrypt reset
 
 All the files in the are now decrypted and ready to be edited.
 
 
-**Note that if you have diffrent salt you will see that files _modified_ but git diff show none.
-Just commit and push this invisible changes**
+**Note that if you have diffrent salt you will see that files _modified_ but `git diff` show none.
+This will lead to *grown up* of repository because all encrypred files will considered as changed**
 
 # Conclusion
 

@@ -97,13 +97,15 @@ PASS_TYPES.each do |type_p|
 
         if @type == :gpg
           expect(%x(git config gitcrypt.pass).strip).to eq "gpg"
+          expect(%x(git config gitcrypt.secret).strip).to eq ""
         elsif @type == :ssh
           expect(%x(git config gitcrypt.pass).strip).to eq "#{TMPDIR}/ssh/gitcrypt_rsa"
+          expect(%x(git config gitcrypt.secret).strip.length).to eq 48
         elsif @type == :password
           expect(%x(git config gitcrypt.pass).strip).to eq ""
+          expect(%x(git config gitcrypt.secret).strip.length).to eq 48
         end
 
-        expect(%x(git config gitcrypt.secret).strip.length).to eq 48
         expect(File.read(FILE1).strip).to eq ""
         expect(File.read(FILE2).strip).to eq DATA2
       end
