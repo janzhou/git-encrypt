@@ -29,10 +29,12 @@ and understand the implications of using this tool before you go crazy with it.
 		$ You MUST run 'crypthistory' BEFORE any encrypted commits.Do you want to recrypt all history? This may corrut your data? [Y/n]
 		...
 
+
 * You can encrypt/decrypt all history:
 
 		$ gitcrypt crypthistory
 		$ gitcrypt decrypthistory
+
 
 * You can enable/disable gitcrypt facility:
 
@@ -40,6 +42,7 @@ and understand the implications of using this tool before you go crazy with it.
     $ gitcrypt reset
     $ gitcrypt enable
     $ gitcrypt reset
+
 
 * You can add multiple users to allowed to encrypt master key when using GPG:
     $ gitcrypt init
