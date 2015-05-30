@@ -23,7 +23,7 @@ and understand the implications of using this tool before you go crazy with it.
 
 * It possible to merge(and resolve conflicts) in encrypted commits. It is realized by custom merge driver "gitcrypt-merge"
 
-* You can encrypt previous repo history with command:
+* You can encrypt previous repo history with command1:
 
   	$ gitcrypt crypthistory
   	$ You MUST run 'crypthistory' BEFORE any encrypted commits.Do you want to recrypt all history? This may corrut your data? [Y/n]
