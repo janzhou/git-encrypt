@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 _debug() {
-    [ -z "$GITCRYPTDEBUG" ] || echo -e "GCDBG: ${GDBGTAB} ${1}"
+    [ -z "$GITCRYPTDEBUG" ] || echo -e "GCDBG: ${GCDBGTAB} ${1}"
 }
 
 [ "$GITCRYPT_AFFECTED_FILES" == "*" ] && _debug " [$0] ALL files"
@@ -10,21 +10,16 @@ _debug() {
 IFS="
 "
 
-export GDBGTAB="${GDBGTAB}  "
+export GCDBGTAB="${GCDBGTAB}  "
 
-echo f1
 for x in $GITCRYPT_AFFECTED_FILES; do
-echo f2
     cmd="cat \"$x\" | $@ > \"$x.tmp\""
     if [ -f "$x" ]; then
-echo f3
         _debug "- $cmd"
-echo f4
         eval $cmd || continue 
-echo f5
         cat "$x.tmp" > "$x" 
         rm -f "$x.tmp"
     fi
 done
 
-export GDBGTAB={GDBGTAB/\ \ /}
+export GCDBGTAB={GCDBGTAB/\ \ /}

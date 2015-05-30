@@ -326,31 +326,9 @@ _decrypthistory() {
   export GCDBGTAB={GCDBGTAB/\ \ /}
 }
 
-# _recrypt() {
-#     echo -n "Do you want to change password and recrypt repo with new one? [Y/n]"
-#     read answer
-
-#     case "$answer" in
-#         n*|N*)
-#             exit 0
-#             ;;
-#         *)
-#             echo -n "Enter your new passphrase or path to key: "
-#             read PASS
-#             ;;
-#     esac
-
-#     debug "=> Recrypting history"
-#     export GCDBGTAB="${GCDBGTAB}  "
-#     _decrypthistory
-#     git config gitcrypt.pass "$PASS"
-#     chmod 600 "$GIT_DIR"/config
-#     _crypthistory_impl
-#     export GCDBGTAB={GCDBGTAB/\ \ /}
-# }
 
 case "$1" in
-    clean|smudge|diff|enable|disable|crypthistory|decrypthistory|recrypt|reset)
+    clean|smudge|diff|enable|disable|crypthistory|decrypthistory|reset)
         # Need a shared salt
         SALT=$(git config gitcrypt.salt)
         [[ -z "$SALT" ]] && die "Gitcrypt: shared salt (gitcrypt.salt) has not been configured"
@@ -379,7 +357,7 @@ case "$1" in
     *)
         # Not a valid option
         if [ -z "$1" ]; then
-            echo "Gitcrypt: available options: init, version, clean|smudge|diff|enable|disable|crypthistory|decrypthistory|recryptn"
+            echo "Gitcrypt: available options: init, version, clean|smudge|diff|enable|disable|crypthistory|decrypthistory|reset"
         else
             echo "Gitcrypt: command does not exist: $1"
         fi
