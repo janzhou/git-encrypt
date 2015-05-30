@@ -27,43 +27,43 @@ and understand the implications of using this tool before you go crazy with it.
 
 		$ gitcrypt crypthistory
 		$ You MUST run 'crypthistory' BEFORE any encrypted commits.Do you want to recrypt all history? This may corrut your data? [Y/n]
-		$ ...
+		...
     
 * You can encrypt/decrypt all history:
 
-  	$ gitcrypt crypthistory
-  	$ gitcrypt decrypthistory
+		$ gitcrypt crypthistory
+		$ gitcrypt decrypthistory
     
 * You can enable/disable gitcrypt facility:
 
-    $ gitcrypt disable
-    $ gitcrypt reset
-    $ gitcrypt enable
-    $ gitcrypt reset
+		$ gitcrypt disable
+		$ gitcrypt reset
+		$ gitcrypt enable
+		$ gitcrypt reset
     
 * You can add multiple users to allowed to encrypt master key when using GPG:
 
-    $ gitcrypt init
-    $ Please select masterkey encryption type:
-    $ type 'gpg' for use gpg
-    $ type path to ssh-private key ex: ~/.ssh/id_rsa
-    $ or type <passphrase> wich will encrypt masterkey
-    $ *gpg*
-    ...
-    $
-    $ You did not specify a user ID. (you may use "-r")
-    $ 
-    $ Current recipients:
-    $ 2048R/DEFD08C4 2015-01-13 "Samoilenko Yuri <kinnalru@gmail.com>"
-    $ 
-    $ Enter the user ID.  End with an empty line: gitcrypt@gmail.com
-    $ 
-    $ Current recipients:
-    $ 2048R/370F9A12 2015-05-30 "gitcrypt <gitcrypt@gmail.com>"
-    $ 2048R/DEFD08C4 2015-01-13 "Samoilenko Yuri <kinnalru@gmail.com>"
-    $
-    $ Enter the user ID.  End with an empty line: 
-    ...
+		$ gitcrypt init
+		$ Please select masterkey encryption type:
+		$ type 'gpg' for use gpg
+		$ type path to ssh-private key ex: ~/.ssh/id_rsa
+		$ or type <passphrase> wich will encrypt masterkey
+		$ *gpg*
+		...
+		$
+		$ You did not specify a user ID. (you may use "-r")
+		$ 
+		$ Current recipients:
+		$ 2048R/DEFD08C4 2015-01-13 "Samoilenko Yuri <kinnalru@gmail.com>"
+		$ 
+		$ Enter the user ID.  End with an empty line: gitcrypt@gmail.com
+		$ 
+		$ Current recipients:
+		$ 2048R/370F9A12 2015-05-30 "gitcrypt <gitcrypt@gmail.com>"
+		$ 2048R/DEFD08C4 2015-01-13 "Samoilenko Yuri <kinnalru@gmail.com>"
+		$
+		$ Enter the user ID.  End with an empty line: 
+		...
 
     Now kinnalru@gmail.com and gitcrypt@gmail.com can decrypt repo with own private gpg key.
 
