@@ -75,16 +75,16 @@ Openssl and git must be installed and the binary must be available in your $PATH
 
 Clone gitcrypt somewhere on your local machine:
 
-    $ git clone https://github.com/kinnalru/gitcrypt
-    $ cd gitcrypt
+		$ git clone https://github.com/kinnalru/gitcrypt
+		$ cd gitcrypt
 
 The `gitcrypt` command must be executable:
 
-    $ chmod 0755 gitcrypt
+		$ chmod 0755 gitcrypt
 
 And it and it's internal files must be accessible in your `$PATH`:
 
-    $ export PATH="$PATH:$(pwd)"
+		$ export PATH="$PATH:$(pwd)"
 
 ### Gentoo
 
@@ -112,18 +112,18 @@ To quickly setup gitcrypt interactively, run `gitcrypt init` from the root
 of your git repository. It will ask you for an encrypt facility GPG/SSH/passphrase,
 cipher mode, and what files should be encrypted.
 
-    $ cd my-repo
-    $ gitcrypt init
+		$ cd my-repo
+		$ gitcrypt init
 
 Useful example to mark *.skip files not-encryptable:
 
-  	$ cat .git/info/attributes
-    $ * filter=encrypt diff=encrypt merge=encrypt
-    $ .gitcryptsecret filter diff merge text
-    $ .gitattributes filter diff merge text
-    $ *.skip text diff merge filter
-    $ [merge]
-    $    renormalize=true
+		$ cat .git/info/attributes
+		$ * filter=encrypt diff=encrypt merge=encrypt
+		$ .gitcryptsecret filter diff merge text
+		$ .gitattributes filter diff merge text
+		$ *.skip text diff merge filter
+		$ [merge]
+		$    renormalize=true
 
 
 Your repository is now set up! Any time you `git add` a file that matches the
@@ -135,22 +135,22 @@ decrypts file content as necessary.
 
 You can manually modify .git/config file:
 
-    $ [gitcrypt]
-    $   cipher = aes-256-cbc
-    $   pass = gpg           # if gpg used
-    $   pass = ~/.ssh/id_rsa # if ssh-private key used
-    $   pass =               # empty if passphrase used
-    $   secret =             # empty if gpg used 
-    $   secret ="hnlR6m#sQY02HcD^22)k0EhMpf&SF*fxY&i4j0gCMdRKuVuI"
-    $   salt = 7214e82f24d5511d
-    $ [filter "encrypt"]
-    $   smudge = gitcrypt smudge
-    $   clean = gitcrypt clean
-    $ [diff "encrypt"]
-    $   textconv = gitcrypt diff
-    $ [merge "encrypt"]
-    $   name = gitcrypt merge driver
-    $   driver = gitcrypt-merge %A %O %B %L
+		$ [gitcrypt]
+		$   cipher = aes-256-cbc
+		$   pass = gpg           # if gpg used
+		$   pass = ~/.ssh/id_rsa # if ssh-private key used
+		$   pass =               # empty if passphrase used
+		$   secret =             # empty if gpg used 
+		$   secret ="hnlR6m#sQY02HcD^22)k0EhMpf&SF*fxY&i4j0gCMdRKuVuI"
+		$   salt = 7214e82f24d5511d
+		$ [filter "encrypt"]
+		$   smudge = gitcrypt smudge
+		$   clean = gitcrypt clean
+		$ [diff "encrypt"]
+		$   textconv = gitcrypt diff
+		$ [merge "encrypt"]
+		$   name = gitcrypt merge driver
+		$   driver = gitcrypt-merge %A %O %B %L
 
 
 Next, you need to define what files will be automatically encrypted using the
@@ -158,17 +158,17 @@ Next, you need to define what files will be automatically encrypted using the
 
 To encrypt all the files in the repo:
 
-    * filter=encrypt diff=encrypt merge=encrypt
-    [merge]
-        renormalize = true
+		* filter=encrypt diff=encrypt merge=encrypt
+		[merge]
+			renormalize = true
 
 To encrypt only one file, you could do this:
 
-    secret.txt filter=encrypt diff=encrypt merge=encrypt
+		secret.txt filter=encrypt diff=encrypt merge=encrypt
 
 Or to encrypt all ".secure" files:
 
-    *.secure filter=encrypt diff=encrypt merge=encrypt
+		*.secure filter=encrypt diff=encrypt merge=encrypt
 
 > If you want this mapping to be included in your repository, use a
 `.gitattributes` file instead and **do not** encrypt it.
@@ -181,8 +181,8 @@ the new clone.
 
 First, clone the repository, but **do not perform a checkout**:
 
-    $ git clone -n git://github.com/johndoe/encrypted.get
-    $ cd encrypted
+		$ git clone -n git://github.com/johndoe/encrypted.get
+		$ cd encrypted
 
 > If you do a `git status` now, it will show all your files as being deleted.
 Do not fear, this is actually what we want right now, because we need to setup
@@ -193,7 +193,7 @@ performed on the original repository.
 
 Once configuration is complete, reset and checkout all the files:
 
-    $ gitcrypt reset
+		$ gitcrypt reset
 
 All the files in the are now decrypted and ready to be edited.
 
