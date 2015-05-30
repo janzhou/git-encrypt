@@ -25,9 +25,9 @@ and understand the implications of using this tool before you go crazy with it.
 
 * You can encrypt previous repo history with command1:
 
-	$ gitcrypt crypthistory
-	$ You MUST run 'crypthistory' BEFORE any encrypted commits.Do you want to recrypt all history? This may corrut your data? [Y/n]
-	$ ...
+		$ gitcrypt crypthistory
+		$ You MUST run 'crypthistory' BEFORE any encrypted commits.Do you want to recrypt all history? This may corrut your data? [Y/n]
+		$ ...
     
 * You can encrypt/decrypt all history:
 
