@@ -13,7 +13,7 @@ and understand the implications of using this tool before you go crazy with it.
 
 * Using strong master key to encrypt data.
 
-* Master key can be encrypted/decrypting throug such facilities:
+* Master key can be encrypted/decrypting through such facilities:
 
   * *GPG*. The most secure way because master key not stored anywhere unencrypted. It has some performance issue because of decrypting is made on ANY FILE while commit/checkout/stage/diff/merge. Also it is possible to encrypt master key for multiple users(which PUBLIC keys you have) and can be used in multiuser encrypted repo.
 
@@ -29,12 +29,12 @@ and understand the implications of using this tool before you go crazy with it.
 		$ You MUST run 'crypthistory' BEFORE any encrypted commits.Do you want to recrypt all history? This may corrut your data? [Y/n]
 		...
 
-* You can encrypt/decrypt all history
+* You can encrypt/decrypt all history:
 
 		$ gitcrypt crypthistory
 		$ gitcrypt decrypthistory
 
-* You can enable/disable gitcrypt facility
+* You can enable/disable gitcrypt facility:
 
     $ gitcrypt disable
     $ gitcrypt reset
