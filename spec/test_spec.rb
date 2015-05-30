@@ -39,8 +39,10 @@ NAMES={cr: 'crypted', cr1: 'crypted_1', re: 'recrypted', cr2: 'crypted_2', dc1: 
 
 PASS_TYPES=[
   [:gpg, "gpg\n\n\n\n#{FILE1}\n"],
+  [:ssh, "#{TMPDIR}/ssh/gitcrypt_rsa\n\n\n\n#{FILE1}\n"],
   [:password, "mypassword\n\n\n\n#{FILE1}\n"]
 ]
+
 
 $passcounter = 0
 PASS_TYPES.each do |type_p|
@@ -52,6 +54,11 @@ PASS_TYPES.each do |type_p|
       `mkdir -p "#{TMPDIR}/#{@type}"`
       
       @baserepo = "#{TMPDIR}/#{@type}/base"
+
+      if @type == :ssh
+        `ssh-keygen -f #{TMPDIR}/ssh/gitcrypt_rsa -N ""`
+      end
+
       $passcounter += 1
     end
 
@@ -83,18 +90,20 @@ PASS_TYPES.each do |type_p|
         expect(File.read(FILE1).strip).to eq DATA1
         expect(File.read(FILE2).strip).to eq DATA2
 
-        %x(
+        puts %x(
           echo "#{@initstr}" | gitcrypt init
           gitcrypt reset
         )
 
-        if @type == :password
-          expect(%x(git config gitcrypt.pass).strip).to eq ""
-        else
+        if @type == :gpg
           expect(%x(git config gitcrypt.pass).strip).to eq "gpg"
+        elsif @type == :ssh
+          expect(%x(git config gitcrypt.pass).strip).to eq "#{TMPDIR}/ssh/gitcrypt_rsa"
+        elsif @type == :password
+          expect(%x(git config gitcrypt.pass).strip).to eq ""
         end
 
-        expect(%x(git config gitcrypt.secret).strip.length).to eq 32
+        expect(%x(git config gitcrypt.secret).strip.length).to eq 48
         expect(File.read(FILE1).strip).to eq ""
         expect(File.read(FILE2).strip).to eq DATA2
       end

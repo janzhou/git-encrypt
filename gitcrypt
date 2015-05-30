@@ -6,7 +6,7 @@ readonly DEFAULT_CIPHER="aes-256-cbc"
 [[ -z "$GIT_DIR" ]] && GIT_DIR=".git"
 
 SECRET_FILE="$(git rev-parse --show-toplevel)/.gitcryptsecret"
-KEY_LENGTH=32
+KEY_LENGTH=48
 
 die() {
   if [ "$GITCRYPTLOGGER" ]; then
@@ -56,6 +56,23 @@ _enable() {
 }
 
 
+private_key() {
+  #expand ~/file to absolute filepath
+  local file=$(eval echo "$1") &> /dev/null
+  if expr "$file" : ".*\.pub" > /dev/null ; then
+    #remove .pub extension if any
+    file=$(echo "$file" | sed s/.pub//) &> /dev/null
+  fi
+  file=$(readlink -e "$file") &> /dev/null
+  echo $file
+}
+
+cipher_key() {
+  local key
+  key=$(openssl rsa -in "$(private_key \"$1\")" | openssl dgst -sha512 | sed s/.*\ //) || die "can't get cipher_key from private key"
+}
+
+
 generate_secret() {
   debug "=> Generating secret..."
   local secret=$(cat /dev/urandom | LC_ALL="C" tr -dc '!@#$%^&*()_A-Z-a-z-0-9' | head -c${KEY_LENGTH} 2> /dev/null)
@@ -64,24 +81,31 @@ generate_secret() {
 }
 
 encrypt_secret() {
+  local private=$(private_key "$PASS")
   if [ "$PASS" == "gpg" ]; then
     generate_secret | gpg --encrypt --armor > "$SECRET_FILE"
+  elif [ -r "$private" ]; then
+    local key=$(cipher_key "$private")
+    generate_secret | openssl enc -base64 -aes-256-cbc -k "$key" > "$SECRET_FILE"
   else
     generate_secret | openssl enc -base64 -aes-256-cbc -k "$PASS" > "$SECRET_FILE"
   fi
 }
 
 decrypt_secret() {
-	  [[ -r "$SECRET_FILE" ]] || die "can't read secret from $SECRET_FILE"
-    local key
-	  if [ "$PASS" == "gpg" ]; then
-      key=$(cat "$SECRET_FILE" | gpg --decrypt) 2>/dev/null || die "can't decrypt secret"
-	  else
-		  key=$(openssl enc -d -base64 -aes-256-cbc -k "$PASS" -in "$SECRET_FILE")  2>/dev/null || die "can't decrypt secret"
-	  fi
+  local private=$(private_key "$PASS")
+  local secret
+  if [ "$PASS" == "gpg" ]; then
+    secret=$(cat "$SECRET_FILE" | gpg --decrypt) 2>/dev/null || die "can't decrypt secret"
+  elif [ -r "$private" ]; then
+    local key=$(cipher_key "$private")
+    secret=$(openssl enc -d -base64 -aes-256-cbc -k "$key" -in "$SECRET_FILE")  2>/dev/null || die "can't decrypt secret"
+  else
+	  secret=$(openssl enc -d -base64 -aes-256-cbc -k "$PASS" -in "$SECRET_FILE")  2>/dev/null || die "can't decrypt secret"
+  fi
 
-    [[ ${#key} -eq KEY_LENGTH ]] || die "decrypted key length is wrong"
-    echo $key
+  [[ ${#secret} -eq KEY_LENGTH ]] || die "decrypted secret length is wrong"
+  echo $secret
 }
 
 mksalt() {
@@ -180,8 +204,12 @@ init_config() {
   secret=$(decrypt_secret)
 
   git config gitcrypt.cipher "$CIPHER"
+
+  local private=$(private_key "$PASS")
   if [ "$PASS" == "gpg" ]; then
     git config gitcrypt.pass "$PASS"
+  elif [ -r "$private" ]; then
+    git config gitcrypt.pass "$private"
   else
     git config gitcrypt.pass ""
   fi
